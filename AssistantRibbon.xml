@@ -1,0 +1,54 @@
+﻿<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="Ribbon_Load">
+  <ribbon>
+    <tabs>
+      <tab id="AITool" label="Assistant">
+        <group id="Settings" label="Settings">
+          <button id="SettingsButton"
+                  label="Endpoint"
+                  size="large"
+                  imageMso="AdvancedFileProperties"
+                  onAction="OnSettingsButtonClick"/>
+          <checkBox id="checkBoxTrackChanges"
+                  label="Track Changes"
+                  getPressed="GetCheckBoxTrackChangesState"
+                  onAction="OnTrackChangeClick"/>
+          <checkBox id="checkBoxPreserveStyle"
+                  label="Preserve Style"
+                  getPressed="GetCheckBoxPreserveStyleState"
+                  onAction="OnPreserveStyleClick"/>
+        </group>
+        <group id="PresetTools" label="Presets">
+          <button id="CorrectText"
+                  label="Correct Text"
+                  size="large"
+                  imageMso="SpellingAccess"
+                  onAction="OnCorrectButtonClick"/>
+        </group>
+        <group id="CustomAI" label="Custom AI">
+          <button id="ManageButton"
+                  label="Manage Assistants"
+                  imageMso="ViewDraftView"
+                  size="large"
+                  onAction="OnManageButtonClick"/>
+          <dynamicMenu id="DynamicMenu"
+                       getLabel="GetDynamicMenuLabel"
+                  size="large"
+                       getContent="GetDynamicMenuContent" />
+          <button id="Execute"
+                  label="Execute"
+                  size="large"
+                  imageMso="MacroPlay"
+                  tag="AIAssistantExecute"
+                  onAction="OnExecuteButtonClick"/>
+        </group>
+        <group id="Tools" label="Tools">
+          <button id="TypeDiff"
+                  label="Type Diff"
+                  imageMso="ShapeStylesGallery"
+                  size="large"
+                  onAction="OnTypeDiffButtonClick"/>
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
