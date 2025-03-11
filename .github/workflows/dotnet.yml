@@ -20,12 +20,12 @@ jobs:
 
     - name: Restore dependencies
       working-directory: WordAI.VSTO
-      run: dotnet restore
+      run: dotnet restore WordAI.VSTO.csproj
 
     - name: Build
       working-directory: WordAI.VSTO
-      run: dotnet build --no-restore
+      run: dotnet build WordAI.VSTO.csproj --no-restore
 
     - name: Test
       working-directory: WordAI.VSTO
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test WordAI.VSTO.csproj --no-build --verbosity normal
