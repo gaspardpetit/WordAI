@@ -1,4 +1,4 @@
-name: .NET
+name: Build VSTO Project (.NET Framework 4.8)
 
 on:
   push:
@@ -8,24 +8,15 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
-
-    - name: Restore dependencies
+    - name: Restore NuGet Packages
       working-directory: WordAI.VSTO
-      run: dotnet restore WordAI.VSTO.csproj
+      run: nuget restore WordAI.VSTO.csproj
 
-    - name: Build
+    - name: Build Project
       working-directory: WordAI.VSTO
-      run: dotnet build WordAI.VSTO.csproj --no-restore
-
-    - name: Test
-      working-directory: WordAI.VSTO
-      run: dotnet test WordAI.VSTO.csproj --no-build --verbosity normal
+      run: msbuild WordAI.VSTO.csproj /p:Configuration=Release /p:TargetFrameworkVersion="v4.8"
