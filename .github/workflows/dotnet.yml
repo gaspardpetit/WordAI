@@ -15,7 +15,7 @@ jobs:
 
     - name: Restore NuGet Packages
       working-directory: WordAI.VSTO
-      run: nuget restore WordAI.VSTO.csproj
+      run: nuget restore WordAI.VSTO.csproj -SolutionDirectory .
 
     - name: Build Project
       working-directory: WordAI.VSTO
