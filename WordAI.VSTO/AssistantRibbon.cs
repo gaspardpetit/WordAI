@@ -466,12 +466,25 @@ You only provide the corrected text. You do not provide any additional comment.
             return sb.ToString();
         }
 
-        private string dynamicMenuLabel;
+        public void SetAssistant(string label)
+        {
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath))
+            {
+                key.SetValue("CurrentAssistant", label);
+            }
+        }
+        public string GetAssistant()
+        {
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath))
+            {
+                return key.GetValue("CurrentAssistant", "").ToString();
+            }
+        }
 
 
         public string GetDynamicMenuLabel(Office.IRibbonControl control)
         {
-            return dynamicMenuLabel;
+            return GetAssistant();
         }
 
 
@@ -483,7 +496,7 @@ You only provide the corrected text. You do not provide any additional comment.
             PromptEntry prompt = new PromptManager().Get(_selectedPromptId);
 
             // Update the dynamic menu label to the selected prompt's name.
-            dynamicMenuLabel = prompt.Label; // or use the prompt's display name if different
+            SetAssistant(prompt.Label);
 
             // Force the Ribbon to refresh the dynamic menu's label.
             ribbon.InvalidateControl("DynamicMenu");
@@ -785,7 +798,6 @@ The document your are editing is between the following text, provided for contex
 
                         // Call OpenAI asynchronously
                         StringBuilder aiResponseBuilder = new StringBuilder();
-                        progress("waiting response", 0.1f);
                         var modelSettings = ModelManager.FromSettings();
                         string model = modelSettings.DefaultModel;
                         if (string.IsNullOrEmpty(prompt.Model) == false)
@@ -793,6 +805,7 @@ The document your are editing is between the following text, provided for contex
                             model = prompt.Model;
                         }
 
+                        progress("waiting response from " + model, 0.1f);
                         AsyncCollectionResult<StreamingChatCompletionUpdate> completionUpdates = GetResponseAsync(new Uri(modelSettings.Endpoint), modelSettings.ApiToken, modelSettings.DefaultModel, xmlTrimmedSelectionRange, "", promptText);
                         var enumerator = completionUpdates.GetAsyncEnumerator();
                         while (await enumerator.MoveNextAsync())
