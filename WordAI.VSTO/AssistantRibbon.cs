@@ -154,7 +154,7 @@ You only provide the corrected text. You do not provide any additional comment.
         /// </summary>
         /// <param name="range">The range containing paragraphs to process.</param>
         /// <param name="processParagraph">The lambda to call for each paragraph’s range.</param>
-        public static async System.Threading.Tasks.Task ProcessParagraphsWithDynamicRecalc(Range range, Func<Range, System.Threading.Tasks.Task> processParagraph)
+        public static async System.Threading.Tasks.Task ProcessParagraphsWithDynamicRecalc(Range range, Func<Range, Action<string, float>, System.Threading.Tasks.Task> processParagraph)
         {
             if (range == null || range.Paragraphs.Count == 0 || processParagraph == null)
                 return;
@@ -209,7 +209,11 @@ You only provide the corrected text. You do not provide any additional comment.
                     Range paraRange = doc.Range(newParaStart, newParaEnd);
 
                     // Call the lambda.
-                    await processParagraph(paraRange);
+                    await processParagraph(paraRange, (string status, float progress) =>
+                    {
+                        progressForm.SetProgress((int)Math.Round(i*100 + progress*100), totalParagraphs*100);
+                        progressForm.SetStatus(status);
+                    });
                     // Update progress.
                     progressForm.SetProgress(i + 1, totalParagraphs);
                     if (progressForm.isAborted)
@@ -387,34 +391,27 @@ You only provide the corrected text. You do not provide any additional comment.
             return ApplyTrackedChanges(diffs, selection, trackedChanges);
         }
 
-        public static async Task<string> GetResponseAsync(ModelSettings modelSettings, string selectionText, string documentText, string prompt)
+        public static AsyncCollectionResult<StreamingChatCompletionUpdate> GetResponseAsync(Uri apiEndpoint, string apiToken, string model, string selectionText, string documentText, string prompt)
         {
-            try
+            /*if (string.IsNullOrEmpty(modelSettings.ApiToken))
             {
-                if (string.IsNullOrEmpty(modelSettings.ApiToken))
-                {
-                    MessageBox.Show("API Key is missing. Please configure it in Settings.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return "Error: No API Key";
-                }
-
-                ChatMessage[] message = new ChatMessage[] {
-                        // System messages represent instructions or other guidance about how the assistant should behave
-                        new SystemChatMessage(prompt + documentText),
-                        // User messages represent user input, whether historical or the most recen tinput
-                        new UserChatMessage(selectionText),
-                };
-
-                OpenAIClientOptions options = new OpenAIClientOptions() { Endpoint = new Uri(modelSettings.Endpoint) };
-                ApiKeyCredential credential = new ApiKeyCredential(modelSettings.ApiToken);
-                ChatClient client = new ChatClient(model: modelSettings.DefaultModel, credential: credential, options: options);
-                ChatCompletion completion = await client.CompleteChatAsync(message);
-
-                return completion.Content[0].Text;
+                MessageBox.Show("API Key is missing. Please configure it in Settings.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return "Error: No API Key";
             }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
+            */
+
+            ChatMessage[] message = new ChatMessage[] {
+                    // System messages represent instructions or other guidance about how the assistant should behave
+                    new SystemChatMessage(prompt + documentText),
+                    // User messages represent user input, whether historical or the most recen tinput
+                    new UserChatMessage(selectionText),
+            };
+
+            OpenAIClientOptions options = new OpenAIClientOptions() { Endpoint = apiEndpoint };
+            ApiKeyCredential credential = new ApiKeyCredential(apiToken);
+            ChatClient client = new ChatClient(model: model, credential: credential, options: options);
+            AsyncCollectionResult<StreamingChatCompletionUpdate> completion = client.CompleteChatStreamingAsync(message);
+            return completion;
         }
 
         public static Range TrimSelection(Range selectionRange)
@@ -502,14 +499,24 @@ You only provide the corrected text. You do not provide any additional comment.
                 Selection wholeSelection = app.Selection;
                 var doc = app.ActiveDocument;
 
-                await ProcessParagraphsWithDynamicRecalc(wholeSelection.Range, async selection =>
+                await ProcessParagraphsWithDynamicRecalc(wholeSelection.Range, async (selection, progress) =>
                 {
                     Range trimedSelectionRange = TrimSelection(selection);
+                    StringBuilder aiResponseBuilder = new StringBuilder();
 
                     if (selection != null && selection.Text != null && selection.Text.Trim().Length > 0)
                     {
                         // Call OpenAI asynchronously
-                        string aiResponse = await GetResponseAsync(ModelManager.FromSettings(), trimedSelectionRange.Text, doc.Content.Text, IMPROVE_PROMPT);
+                        var modelSettings = ModelManager.FromSettings();
+                        AsyncCollectionResult<StreamingChatCompletionUpdate> completionUpdates = GetResponseAsync(new Uri(modelSettings.Endpoint), modelSettings.ApiToken, modelSettings.DefaultModel, trimedSelectionRange.Text, doc.Content.Text, IMPROVE_PROMPT);
+                        var enumerator = completionUpdates.GetAsyncEnumerator();
+                        while (await enumerator.MoveNextAsync())
+                        {
+                            StreamingChatCompletionUpdate completionUpdate = enumerator.Current;
+                            aiResponseBuilder.Append(completionUpdate.ContentUpdate[0].Text);
+                        }
+
+                        string aiResponse = aiResponseBuilder.ToString();
 
                         bool prevTrackRevisionsState = doc.TrackRevisions;
                         if (trackedChanges)
@@ -665,8 +672,9 @@ You only provide the corrected text. You do not provide any additional comment.
                 var app = Globals.ThisAddIn.Application;
                 Selection wholeSelection = app.Selection;
 
-                await ProcessParagraphsWithDynamicRecalc(wholeSelection.Range, async selection =>
+                await ProcessParagraphsWithDynamicRecalc(wholeSelection.Range, async (selection, progress) =>
                 {
+                    progress("formatting question", 0.0f);
 
                     string thoughts = string.Empty;
                     var doc = app.ActiveDocument;
@@ -769,8 +777,45 @@ The document your are editing is between the following text, provided for contex
                         }
 
                         // Call OpenAI asynchronously using the selected prompt.
-                        string xmlTrimmedSelectionRange = WordXmlConverter.ConvertRangeToXmlFragment(trimmedSelectionRange);
-                        string aiResponse = await GetResponseAsync(ModelManager.FromSettings(), xmlTrimmedSelectionRange, "", promptText);
+                        string xmlTrimmedSelectionRange = string.Empty;
+                        if (preserveStyle)
+                            xmlTrimmedSelectionRange = WordXmlConverter.ConvertRangeToXmlFragment(trimmedSelectionRange);
+                        else
+                            xmlTrimmedSelectionRange = trimmedSelectionRange.Text;
+
+                        // Call OpenAI asynchronously
+                        StringBuilder aiResponseBuilder = new StringBuilder();
+                        progress("waiting response", 0.1f);
+                        var modelSettings = ModelManager.FromSettings();
+                        string model = modelSettings.DefaultModel;
+                        if (string.IsNullOrEmpty(prompt.Model) == false)
+                        {
+                            model = prompt.Model;
+                        }
+
+                        AsyncCollectionResult<StreamingChatCompletionUpdate> completionUpdates = GetResponseAsync(new Uri(modelSettings.Endpoint), modelSettings.ApiToken, modelSettings.DefaultModel, xmlTrimmedSelectionRange, "", promptText);
+                        var enumerator = completionUpdates.GetAsyncEnumerator();
+                        while (await enumerator.MoveNextAsync())
+                        {
+                            StreamingChatCompletionUpdate completionUpdate = enumerator.Current;
+                            if (completionUpdate.ContentUpdate.Count > 0)
+                            {
+                                aiResponseBuilder.Append(completionUpdate.ContentUpdate[0].Text);
+                                if (aiResponseBuilder.ToString().StartsWith("<think>") && aiResponseBuilder.ToString().Contains("</think>") == false)
+                                {
+                                    progress("thinking... (" + aiResponseBuilder.Length + ")", 0.5f);
+                                }
+                                else
+                                {
+                                    progress("receiving response (" + aiResponseBuilder.Length + ")", 0.75f);
+                                }
+                            }
+                        }
+
+                        progress("formatting response", 0.9f);
+
+
+                        string aiResponse = aiResponseBuilder.ToString();
 
                         if (aiResponse.Trim().StartsWith("<think>")) // this is a thinking model
                         {
@@ -786,23 +831,23 @@ The document your are editing is between the following text, provided for contex
 
                         if (prompt.Output == OutputType.text.ToString())
                         {
-                        bool prevTrackRevisionsState = doc.TrackRevisions;
+                            bool prevTrackRevisionsState = doc.TrackRevisions;
                             Range insertRange = null;
-                        if (preserveStyle)
-                        {
+                            if (preserveStyle)
+                            {
                                 insertRange = WordXmlConverter.InsertXmlFragmentIntoRange(aiResponse, trimmedSelectionRange);
-                        }
-                        else
-                        {
-                            if (trackedChanges)
-                                doc.TrackRevisions = true;
+                            }
+                            else
+                            {
+                                if (trackedChanges)
+                                    doc.TrackRevisions = true;
 
-                            // Apply the changes to the document.
+                                // Apply the changes to the document.
                                 insertRange = ApplyTrackedChanges(trimmedSelectionRange.Text, aiResponse, trimmedSelectionRange, trackedChanges);
 
-                            if (trackedChanges)
-                                doc.TrackRevisions = prevTrackRevisionsState;
-                        }
+                                if (trackedChanges)
+                                    doc.TrackRevisions = prevTrackRevisionsState;
+                            }
 
                             if (GetThoughtsAsCommentsSettings())
                             {
@@ -812,7 +857,7 @@ The document your are editing is between the following text, provided for contex
                                     doc.Comments.Add(commentRange, thoughts.Trim());
                                 }
                             }
-                    }
+                        }
                         else if (prompt.Output == OutputType.comments.ToString())
                         {
                             Range commentRange = doc.Range(trimmedSelectionRange.Start, trimmedSelectionRange.Start);

@@ -27,6 +27,13 @@ namespace WordAI
 
         }
 
+        internal void SetStatus(string status)
+        {
+            this.textBoxStatus.Text = status;
+            Application.DoEvents();
+
+        }
+
         private void buttonAbort_Click(object sender, EventArgs e)
         {
             isAborted = true;
