@@ -16,6 +16,10 @@
                   label="Preserve Style"
                   getPressed="GetCheckBoxPreserveStyleState"
                   onAction="OnPreserveStyleClick"/>
+          <checkBox id="thoughtsAsComments"
+                  label="Thoughts as Comments"
+                  getPressed="GetCheckboxThoughtsAsCommentsState"
+                  onAction="OnCheckBoxPreserveStyleClick"/>
         </group>
         <group id="PresetTools" label="Presets">
           <button id="CorrectText"

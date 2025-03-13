@@ -240,12 +240,12 @@ namespace WordAI
         /// </summary>
         /// <param name="xmlFragment">The XML fragment with formatting data.</param>
         /// <param name="targetRange">The Range where the content should be inserted.</param>
-        public static void InsertXmlFragmentIntoRange(string xmlFragment, Range targetRange)
+        public static Range InsertXmlFragmentIntoRange(string xmlFragment, Range targetRange)
         {
             if (targetRange == null)
                 throw new ArgumentNullException(nameof(targetRange));
             if (string.IsNullOrEmpty(xmlFragment))
-                return;
+                return targetRange;
 
             // make sure the xml does not contain unknown XML entities (ex. &eacute;) which
             // are valid in HTML but not in XML - XDocument is pretty strict and will throw otherwisw
@@ -412,6 +412,7 @@ namespace WordAI
 
                 offset += seg.Text.Length;
             }
+            return targetRange.Document.Range(insertStart, offset);
         }
 
         #region Helper Methods

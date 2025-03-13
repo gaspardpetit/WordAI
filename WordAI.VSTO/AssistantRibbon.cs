@@ -15,6 +15,7 @@ using DiffMatchPatch;
 using System.Diagnostics;
 using OpenAI;
 using System.ClientModel;
+using System.Text.RegularExpressions;
 
 namespace WordAI
 {
@@ -313,7 +314,7 @@ You only provide the corrected text. You do not provide any additional comment.
             return range.Text;
         }
 
-        public static void ApplyTrackedChanges(List<Diff> diffs, Range selection, bool trackedChanges)
+        public static Range ApplyTrackedChanges(List<Diff> diffs, Range selection, bool trackedChanges)
         {
             // Duplicate the current selection range.
             Range rng = selection.Duplicate;
@@ -375,14 +376,15 @@ You only provide the corrected text. You do not provide any additional comment.
                     }
                 }
             }
+            return selection.Document.Range(basePos, offset);
         }
 
-        public static void ApplyTrackedChanges(string originalText, string modifiedText, Range selection, bool trackedChanges)
+        public static Range ApplyTrackedChanges(string originalText, string modifiedText, Range selection, bool trackedChanges)
         {
             var dmp = new diff_match_patch();
             List<Diff> diffs = dmp.diff_main(originalText, modifiedText);
             dmp.diff_cleanupSemantic(diffs); // Optimize for better readability
-            ApplyTrackedChanges(diffs, selection, trackedChanges);
+            return ApplyTrackedChanges(diffs, selection, trackedChanges);
         }
 
         public static async Task<string> GetResponseAsync(ModelSettings modelSettings, string selectionText, string documentText, string prompt)
@@ -584,6 +586,32 @@ You only provide the corrected text. You do not provide any additional comment.
             return GetPreserveStyleSettings();
         }
 
+        public void OnThoughtsAsCommentsClick(Office.IRibbonControl control, bool pressed)
+        {
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath))
+            {
+                key.SetValue("ThoughtsAsComments", pressed);
+            }
+        }
+
+
+        public static bool GetThoughtsAsCommentsSettings()
+        {
+            bool checkBoxTrackChanges = false;
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(RegistryPath))
+            {
+                if (key != null)
+                {
+                    checkBoxTrackChanges = bool.Parse(key.GetValue("ThoughtsAsComments", false).ToString());
+                }
+            }
+            return checkBoxTrackChanges;
+        }
+        public bool GetCheckboxThoughtsAsCommentsState(Office.IRibbonControl control)
+        {
+            return GetThoughtsAsCommentsSettings();
+        }
+
         public static bool GetPreserveStyleSettings()
         {
             bool checkBoxTrackChanges = false;
@@ -640,6 +668,7 @@ You only provide the corrected text. You do not provide any additional comment.
                 await ProcessParagraphsWithDynamicRecalc(wholeSelection.Range, async selection =>
                 {
 
+                    string thoughts = string.Empty;
                     var doc = app.ActiveDocument;
 
                     // Trim the selection to remove any leading/trailing whitespace.
@@ -743,10 +772,22 @@ The document your are editing is between the following text, provided for contex
                         string xmlTrimmedSelectionRange = WordXmlConverter.ConvertRangeToXmlFragment(trimmedSelectionRange);
                         string aiResponse = await GetResponseAsync(ModelManager.FromSettings(), xmlTrimmedSelectionRange, "", promptText);
 
+                        if (aiResponse.Trim().StartsWith("<think>")) // this is a thinking model
+                        {
+                            string pattern = @"\s*<think>(.*?)</think>\s*(.*)";
+                            Match match = Regex.Match(aiResponse, pattern, RegexOptions.Singleline);
+
+                            if (match.Success)
+                            {
+                                thoughts = match.Groups[1].Value;
+                                aiResponse = match.Groups[2].Value;
+                            }
+                        }
                         bool prevTrackRevisionsState = doc.TrackRevisions;
+                            Range insertRange = null;
                         if (preserveStyle)
                         {
-                            WordXmlConverter.InsertXmlFragmentIntoRange(aiResponse, trimmedSelectionRange);
+                                insertRange = WordXmlConverter.InsertXmlFragmentIntoRange(aiResponse, trimmedSelectionRange);
                         }
                         else
                         {
@@ -754,11 +795,20 @@ The document your are editing is between the following text, provided for contex
                                 doc.TrackRevisions = true;
 
                             // Apply the changes to the document.
-                            ApplyTrackedChanges(trimmedSelectionRange.Text, aiResponse, trimmedSelectionRange, trackedChanges);
+                                insertRange = ApplyTrackedChanges(trimmedSelectionRange.Text, aiResponse, trimmedSelectionRange, trackedChanges);
 
                             if (trackedChanges)
                                 doc.TrackRevisions = prevTrackRevisionsState;
                         }
+
+                            if (GetThoughtsAsCommentsSettings())
+                            {
+                                if (string.IsNullOrWhiteSpace(thoughts) == false && insertRange != null)
+                                {
+                                    Range commentRange = doc.Range(insertRange.Start, insertRange.Start);
+                                    doc.Comments.Add(commentRange, thoughts.Trim());
+                                }
+                            }
                     }
                 });
             }
