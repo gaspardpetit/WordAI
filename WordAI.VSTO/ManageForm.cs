@@ -84,6 +84,7 @@ namespace WordAI
                 checkBoxContextPreceding.Checked = true;
                 checkBoxContextFollowing.Checked = true;
                 comboBoxModel.SelectedItem = DEFAULT_MODEL;
+                radioButtonText.Checked = true;
             }
             else
             {
@@ -96,6 +97,8 @@ namespace WordAI
                     checkBoxContextPreceding.Checked = string.IsNullOrEmpty(prompt.Context) || (prompt.Context == ContextType.document.ToString() || prompt.Context == ContextType.prefix.ToString());
                     checkBoxContextFollowing.Checked = string.IsNullOrEmpty(prompt.Context) || (prompt.Context == ContextType.document.ToString() || prompt.Context == ContextType.suffix.ToString());
                     comboBoxModel.SelectedItem = string.IsNullOrEmpty(prompt.Model) ? DEFAULT_MODEL : prompt.Model;
+                    radioButtonText.Checked = (prompt.Output == OutputType.text.ToString());
+                    radioButtonComments.Checked = (prompt.Output != OutputType.text.ToString());
                 }
             }
         }
@@ -132,6 +135,12 @@ namespace WordAI
             else
                 contextType = ContextType.none;
 
+            string output = OutputType.text.ToString();
+            if (radioButtonText.Checked)
+                output = OutputType.text.ToString();
+            else if (radioButtonComments.Checked)
+                output = OutputType.comments.ToString();
+
             if (string.IsNullOrEmpty(name))
             {
                 MessageBox.Show("Please enter a name for the prompt.");
@@ -152,6 +161,7 @@ namespace WordAI
                     Prompt = promptText,
                     Context = contextType.ToString(),
                     Model = promptModel,
+                    Output = output,
                     Id = Guid.NewGuid().ToString()
                 };
                 promptManager.Prompts.Add(newEntry);
@@ -168,6 +178,7 @@ namespace WordAI
                         Id = Guid.NewGuid().ToString(),
                         Context = contextType.ToString(),
                         Model = promptModel,
+                        Output = output,
                     };
                     promptManager.Prompts.Add(newEntry);
                 }
@@ -176,6 +187,7 @@ namespace WordAI
                     existing.Prompt = promptText;
                     existing.Context = contextType.ToString();
                     existing.Model = promptModel;
+                    existing.Output = output;
                 }
             }
 

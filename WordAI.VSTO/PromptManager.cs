@@ -11,6 +11,12 @@ namespace WordAI
         document = 3,
     }
 
+    public enum OutputType
+    {
+        text = 0,
+        comments = 1,
+    }
+
     // Our prompt model (from ManageForm)
     public class PromptEntry
     {
@@ -19,6 +25,7 @@ namespace WordAI
         public string Prompt { get; set; }
         public string Model { get; set; }
         public string Context { get; set; }
+        public string Output { get; set; }
     }
 
     // A manager that loads and saves prompts from a JSON file.
@@ -51,6 +58,8 @@ namespace WordAI
                         entry.Id = Guid.NewGuid().ToString();
                     if (entry.Context == null)
                         entry.Context = ContextType.document.ToString();
+                    if (entry.Output == null)
+                        entry.Output = OutputType.text.ToString();
                 }
             }
             else

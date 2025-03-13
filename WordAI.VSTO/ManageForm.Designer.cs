@@ -37,9 +37,14 @@
             this.buttonSave = new System.Windows.Forms.Button();
             this.labelModel = new System.Windows.Forms.Label();
             this.comboBoxModel = new System.Windows.Forms.ComboBox();
-            this.label1 = new System.Windows.Forms.Label();
+            this.labelContext = new System.Windows.Forms.Label();
             this.checkBoxContextPreceding = new System.Windows.Forms.CheckBox();
             this.checkBoxContextFollowing = new System.Windows.Forms.CheckBox();
+            this.label1 = new System.Windows.Forms.Label();
+            this.radioButtonText = new System.Windows.Forms.RadioButton();
+            this.radioButtonComments = new System.Windows.Forms.RadioButton();
+            this.groupBoxOutput = new System.Windows.Forms.GroupBox();
+            this.groupBoxOutput.SuspendLayout();
             this.SuspendLayout();
             // 
             // listBoxPrompts
@@ -49,7 +54,7 @@
             this.listBoxPrompts.FormattingEnabled = true;
             this.listBoxPrompts.Location = new System.Drawing.Point(30, 24);
             this.listBoxPrompts.Name = "listBoxPrompts";
-            this.listBoxPrompts.Size = new System.Drawing.Size(236, 394);
+            this.listBoxPrompts.Size = new System.Drawing.Size(236, 355);
             this.listBoxPrompts.TabIndex = 0;
             this.listBoxPrompts.SelectedIndexChanged += new System.EventHandler(this.listBoxPrompts_SelectedIndexChanged);
             // 
@@ -60,11 +65,11 @@
             this.textBoxPrompt.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxPrompt.Location = new System.Drawing.Point(305, 89);
+            this.textBoxPrompt.Location = new System.Drawing.Point(305, 77);
             this.textBoxPrompt.Multiline = true;
             this.textBoxPrompt.Name = "textBoxPrompt";
             this.textBoxPrompt.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.textBoxPrompt.Size = new System.Drawing.Size(467, 233);
+            this.textBoxPrompt.Size = new System.Drawing.Size(467, 203);
             this.textBoxPrompt.TabIndex = 1;
             // 
             // textBoxPromptName
@@ -88,7 +93,7 @@
             // labelPrompt
             // 
             this.labelPrompt.AutoSize = true;
-            this.labelPrompt.Location = new System.Drawing.Point(302, 73);
+            this.labelPrompt.Location = new System.Drawing.Point(305, 61);
             this.labelPrompt.Name = "labelPrompt";
             this.labelPrompt.Size = new System.Drawing.Size(43, 13);
             this.labelPrompt.TabIndex = 4;
@@ -97,7 +102,7 @@
             // buttonDelete
             // 
             this.buttonDelete.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonDelete.Location = new System.Drawing.Point(305, 401);
+            this.buttonDelete.Location = new System.Drawing.Point(305, 377);
             this.buttonDelete.Name = "buttonDelete";
             this.buttonDelete.Size = new System.Drawing.Size(75, 23);
             this.buttonDelete.TabIndex = 5;
@@ -108,7 +113,7 @@
             // buttonSave
             // 
             this.buttonSave.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonSave.Location = new System.Drawing.Point(697, 402);
+            this.buttonSave.Location = new System.Drawing.Point(697, 378);
             this.buttonSave.Name = "buttonSave";
             this.buttonSave.Size = new System.Drawing.Size(75, 23);
             this.buttonSave.TabIndex = 6;
@@ -120,7 +125,7 @@
             // 
             this.labelModel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelModel.AutoSize = true;
-            this.labelModel.Location = new System.Drawing.Point(302, 331);
+            this.labelModel.Location = new System.Drawing.Point(305, 293);
             this.labelModel.Name = "labelModel";
             this.labelModel.Size = new System.Drawing.Size(36, 13);
             this.labelModel.TabIndex = 7;
@@ -131,26 +136,26 @@
             this.comboBoxModel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.comboBoxModel.FormattingEnabled = true;
-            this.comboBoxModel.Location = new System.Drawing.Point(348, 328);
+            this.comboBoxModel.Location = new System.Drawing.Point(351, 290);
             this.comboBoxModel.Name = "comboBoxModel";
             this.comboBoxModel.Size = new System.Drawing.Size(424, 21);
             this.comboBoxModel.TabIndex = 8;
             // 
-            // label1
+            // labelContext
             // 
-            this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(305, 362);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(43, 13);
-            this.label1.TabIndex = 9;
-            this.label1.Text = "Context";
+            this.labelContext.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.labelContext.AutoSize = true;
+            this.labelContext.Location = new System.Drawing.Point(305, 323);
+            this.labelContext.Name = "labelContext";
+            this.labelContext.Size = new System.Drawing.Size(43, 13);
+            this.labelContext.TabIndex = 9;
+            this.labelContext.Text = "Context";
             // 
             // checkBoxContextPreceding
             // 
             this.checkBoxContextPreceding.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.checkBoxContextPreceding.AutoSize = true;
-            this.checkBoxContextPreceding.Location = new System.Drawing.Point(354, 361);
+            this.checkBoxContextPreceding.Location = new System.Drawing.Point(354, 322);
             this.checkBoxContextPreceding.Name = "checkBoxContextPreceding";
             this.checkBoxContextPreceding.Size = new System.Drawing.Size(98, 17);
             this.checkBoxContextPreceding.TabIndex = 10;
@@ -161,21 +166,68 @@
             // 
             this.checkBoxContextFollowing.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.checkBoxContextFollowing.AutoSize = true;
-            this.checkBoxContextFollowing.Location = new System.Drawing.Point(458, 361);
+            this.checkBoxContextFollowing.Location = new System.Drawing.Point(458, 322);
             this.checkBoxContextFollowing.Name = "checkBoxContextFollowing";
             this.checkBoxContextFollowing.Size = new System.Drawing.Size(94, 17);
             this.checkBoxContextFollowing.TabIndex = 11;
             this.checkBoxContextFollowing.Text = "Following Text";
             this.checkBoxContextFollowing.UseVisualStyleBackColor = true;
             // 
+            // label1
+            // 
+            this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(305, 351);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(39, 13);
+            this.label1.TabIndex = 12;
+            this.label1.Text = "Output";
+            // 
+            // radioButtonText
+            // 
+            this.radioButtonText.AutoSize = true;
+            this.radioButtonText.Location = new System.Drawing.Point(9, 9);
+            this.radioButtonText.Name = "radioButtonText";
+            this.radioButtonText.Size = new System.Drawing.Size(46, 17);
+            this.radioButtonText.TabIndex = 13;
+            this.radioButtonText.TabStop = true;
+            this.radioButtonText.Text = "Text";
+            this.radioButtonText.UseVisualStyleBackColor = true;
+            // 
+            // radioButtonComments
+            // 
+            this.radioButtonComments.AutoSize = true;
+            this.radioButtonComments.Location = new System.Drawing.Point(66, 9);
+            this.radioButtonComments.Name = "radioButtonComments";
+            this.radioButtonComments.Size = new System.Drawing.Size(74, 17);
+            this.radioButtonComments.TabIndex = 14;
+            this.radioButtonComments.TabStop = true;
+            this.radioButtonComments.Text = "Comments";
+            this.radioButtonComments.UseVisualStyleBackColor = true;
+            // 
+            // groupBoxOutput
+            // 
+            this.groupBoxOutput.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.groupBoxOutput.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
+            this.groupBoxOutput.Controls.Add(this.radioButtonComments);
+            this.groupBoxOutput.Controls.Add(this.radioButtonText);
+            this.groupBoxOutput.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.groupBoxOutput.Location = new System.Drawing.Point(354, 340);
+            this.groupBoxOutput.Name = "groupBoxOutput";
+            this.groupBoxOutput.Size = new System.Drawing.Size(159, 31);
+            this.groupBoxOutput.TabIndex = 15;
+            this.groupBoxOutput.TabStop = false;
+            // 
             // ManageForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(811, 443);
+            this.ClientSize = new System.Drawing.Size(811, 419);
+            this.Controls.Add(this.groupBoxOutput);
+            this.Controls.Add(this.label1);
             this.Controls.Add(this.checkBoxContextFollowing);
             this.Controls.Add(this.checkBoxContextPreceding);
-            this.Controls.Add(this.label1);
+            this.Controls.Add(this.labelContext);
             this.Controls.Add(this.comboBoxModel);
             this.Controls.Add(this.labelModel);
             this.Controls.Add(this.buttonSave);
@@ -188,6 +240,8 @@
             this.Name = "ManageForm";
             this.Text = "ManageForm";
             this.Load += new System.EventHandler(this.ManageForm_Load);
+            this.groupBoxOutput.ResumeLayout(false);
+            this.groupBoxOutput.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -204,8 +258,12 @@
         private System.Windows.Forms.Button buttonSave;
         private System.Windows.Forms.Label labelModel;
         private System.Windows.Forms.ComboBox comboBoxModel;
-        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Label labelContext;
         private System.Windows.Forms.CheckBox checkBoxContextPreceding;
         private System.Windows.Forms.CheckBox checkBoxContextFollowing;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.RadioButton radioButtonText;
+        private System.Windows.Forms.RadioButton radioButtonComments;
+        private System.Windows.Forms.GroupBox groupBoxOutput;
     }
 }

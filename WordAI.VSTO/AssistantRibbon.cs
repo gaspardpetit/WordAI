@@ -783,6 +783,9 @@ The document your are editing is between the following text, provided for contex
                                 aiResponse = match.Groups[2].Value;
                             }
                         }
+
+                        if (prompt.Output == OutputType.text.ToString())
+                        {
                         bool prevTrackRevisionsState = doc.TrackRevisions;
                             Range insertRange = null;
                         if (preserveStyle)
@@ -809,6 +812,22 @@ The document your are editing is between the following text, provided for contex
                                     doc.Comments.Add(commentRange, thoughts.Trim());
                                 }
                             }
+                    }
+                        else if (prompt.Output == OutputType.comments.ToString())
+                        {
+                            Range commentRange = doc.Range(trimmedSelectionRange.Start, trimmedSelectionRange.Start);
+                            if (GetThoughtsAsCommentsSettings())
+                            {
+                                if (string.IsNullOrWhiteSpace(thoughts) == false)
+                                    doc.Comments.Add(commentRange, thoughts.Trim());
+                            }
+                            if (string.IsNullOrWhiteSpace(aiResponse) == false && aiResponse.Trim().ToUpper() != "NO COMMENTS")
+                                doc.Comments.Add(commentRange, aiResponse);
+                        }
+                        else
+                        {
+                            throw new Exception("Unknown output type: " + prompt.Output);
+                        }
                     }
                 });
             }
