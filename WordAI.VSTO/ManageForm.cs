@@ -35,11 +35,11 @@ namespace WordAI
             }
 
             // If the previous selection still exists, re-select it.
-            if (!string.IsNullOrEmpty(previousSelection))
+            if (!string.IsNullOrEmpty(previousSelection) && comboBoxModel.Items.Contains(previousSelection))
             {
-                comboBoxModel.SelectedText = previousSelection;
+                comboBoxModel.SelectedItem = previousSelection;
             }
-            else
+            else if (comboBoxModel.Items.Count > 0)
             {
                 comboBoxModel.SelectedIndex = 0;
             }
