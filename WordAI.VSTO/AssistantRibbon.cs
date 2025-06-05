@@ -1,25 +1,104 @@
-﻿using Microsoft.Office.Core;
+﻿using DiffMatchPatch;
+using Markdig;
+using Markdig.Syntax;
+using Microsoft.Office.Core;
 using Microsoft.Office.Interop.Word;
 using Microsoft.Win32;
+using OpenAI;
 using OpenAI.Chat;
 using System;
+using System.ClientModel;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Office = Microsoft.Office.Core;
-using DiffMatchPatch;
-using System.Diagnostics;
-using OpenAI;
-using System.ClientModel;
-using System.Text.RegularExpressions;
 
 namespace WordAI
 {
-    [ComVisible(true)]
+	public interface IParagraphChunkingStrategy
+	{
+		List<Range> Split(Range fullRange);
+	}
+
+	public class ParagraphByParagraphStrategy : IParagraphChunkingStrategy
+	{
+		public List<Range> Split(Range fullRange)
+		{
+			return fullRange.Paragraphs
+							.Cast<Paragraph>()
+							.Select(p => p.Range)
+							.ToList();
+		}
+	}
+
+    public class ListAwareChunkingStrategy : IParagraphChunkingStrategy
+    {
+		List<Range> ExtractProcessingChunks(Range range)
+		{
+			List<Range> chunks = new List<Range>();
+
+			var paragraphs = range.Paragraphs;
+			int i = 1;
+
+			while (i <= paragraphs.Count)
+			{
+				Paragraph para = paragraphs[i];
+				var listType = para.Range.ListFormat?.ListType;
+
+				if (listType != WdListType.wdListNoNumbering)
+				{
+					// start of a list block
+					int start = para.Range.Start;
+					int j = i + 1;
+
+					while (j <= paragraphs.Count &&
+							paragraphs[j].Range.ListFormat?.ListType == listType)
+					{
+						j++;
+					}
+
+					int end = paragraphs[j - 1].Range.End;
+					chunks.Add(range.Document.Range(start, end));
+					i = j;
+				}
+				else
+				{
+					// process individually or in small batches
+					chunks.Add(para.Range);
+					i++;
+				}
+			}
+
+			return chunks;
+		}
+
+		public List<Range> Split(Range fullRange)
+        {
+            // Your hybrid logic as discussed earlier
+            return ExtractProcessingChunks(fullRange);
+        }
+	}
+
+
+
+	public class WholeRangeStrategy : IParagraphChunkingStrategy
+	{
+		public List<Range> Split(Range fullRange)
+		{
+			return new List<Range> { fullRange };
+		}
+	}
+
+
+
+	[ComVisible(true)]
     public class AssistantRibbon : Office.IRibbonExtensibility
     {
         private const string RegistryPath = @"Software\AssistantWordAddin"; // Custom registry key
@@ -40,10 +119,46 @@ You only provide the corrected text. You do not provide any additional comment.
 
         public AssistantRibbon()
         {
+            if (_selectedPromptId == string.Empty)
+                _selectedPromptId = GetAssistant();
         }
 
+		public static async System.Threading.Tasks.Task ProcessWithStrategy(Range range, IParagraphChunkingStrategy splitter, Func<Range, Action<string, float>, System.Threading.Tasks.Task> processParagraph)
+        {
+			if (range == null || splitter == null || processParagraph == null)
+				return;
 
-        public static List<Range> FindFormattingRuns(Range range)
+			var chunks = splitter.Split(range);
+			int total = chunks.Count;
+
+			ProgressForm progressForm = new ProgressForm();
+			progressForm.Show();
+
+			try
+			{
+				for (int i = 0; i < total; i++)
+				{
+					Range chunk = chunks[i];
+					await processParagraph(chunk, (status, progress) =>
+					{
+						progressForm.SetProgress((int)Math.Round(i * 100 + progress * 100), total * 100);
+						progressForm.SetStatus(status);
+					});
+
+					if (progressForm.isAborted)
+						break;
+				}
+			}
+			finally
+			{
+				progressForm.Close();
+				Globals.ThisAddIn.Application.StatusBar = string.Empty;
+			}
+		}
+
+
+
+		public static List<Range> FindFormattingRuns(Range range)
         {
             List<Range> ranges = new List<Range>();
             if (range == null || string.IsNullOrWhiteSpace(range.Text))
@@ -146,15 +261,42 @@ You only provide the corrected text. You do not provide any additional comment.
         }
 
 
-        /// <summary>
-        /// Processes each paragraph in the given range in beginning-to-end order.
-        /// For each paragraph, it recalculates the paragraph’s start position by
-        /// working back from the current document end, based on an initial snapshot.
-        /// This helps accommodate changes at the top of the document.
-        /// </summary>
-        /// <param name="range">The range containing paragraphs to process.</param>
-        /// <param name="processParagraph">The lambda to call for each paragraph’s range.</param>
-        public static async System.Threading.Tasks.Task ProcessParagraphsWithDynamicRecalc(Range range, Func<Range, Action<string, float>, System.Threading.Tasks.Task> processParagraph)
+		public static HeaderFooter GetCurrentHeaderFooter(Range range)
+		{
+			Section section = range.Sections[1];
+
+			switch(range.StoryType)
+            {
+                case WdStoryType.wdPrimaryHeaderStory:
+                    return section.Headers[WdHeaderFooterIndex.wdHeaderFooterPrimary];
+                case WdStoryType.wdFirstPageHeaderStory:
+                    return section.Headers[WdHeaderFooterIndex.wdHeaderFooterFirstPage];
+                case WdStoryType.wdEvenPagesHeaderStory:
+                    return section.Headers[WdHeaderFooterIndex.wdHeaderFooterEvenPages];
+                case WdStoryType.wdPrimaryFooterStory:
+                    return section.Footers[WdHeaderFooterIndex.wdHeaderFooterPrimary];
+                case WdStoryType.wdFirstPageFooterStory:
+                    return section.Footers[WdHeaderFooterIndex.wdHeaderFooterFirstPage];
+                case WdStoryType.wdEvenPagesFooterStory:
+                    return section.Footers[WdHeaderFooterIndex.wdHeaderFooterEvenPages];
+                default:
+                    return null;
+			}
+		}
+
+
+		/// <summary>
+		/// Processes each paragraph in the given range in beginning-to-end order.
+		/// For each paragraph, it recalculates the paragraph’s start position by
+		/// working back from the current document end, based on an initial snapshot.
+		/// This helps accommodate changes at the top of the document.
+		/// </summary>
+		/// <param name="range">The range containing paragraphs to process.</param>
+		/// <param name="processParagraph">The lambda to call for each paragraph’s range.</param>
+		public static async System.Threading.Tasks.Task ProcessParagraphsWithDynamicRecalc(Range range,
+	        IParagraphChunkingStrategy chunkingStrategy,
+	        Func<Range, Action<string, float>, System.Threading.Tasks.Task> processParagraph
+        )
         {
             if (range == null || range.Paragraphs.Count == 0 || processParagraph == null)
                 return;
@@ -165,60 +307,113 @@ You only provide the corrected text. You do not provide any additional comment.
 
             try
             {
-                Document doc = range.Document;
-                int totalParagraphs = range.Paragraphs.Count;
+				bool isInHeader = range.StoryType == WdStoryType.wdPrimaryHeaderStory ||
+								  range.StoryType == WdStoryType.wdFirstPageHeaderStory ||
+								  range.StoryType == WdStoryType.wdEvenPagesHeaderStory;
 
+				bool isInFooter = range.StoryType == WdStoryType.wdPrimaryFooterStory ||
+								  range.StoryType == WdStoryType.wdFirstPageFooterStory ||
+								  range.StoryType == WdStoryType.wdEvenPagesFooterStory;
 
-                // Capture an initial snapshot:
-                // For each paragraph, record its length (excluding trailing paragraph mark)
-                // and its starting position relative to the initial document end.
-                int initialDocEnd = doc.Content.End;
-                var paragraphSnapshots = new List<(int relativeOffset, int length)>();
+                bool isInDocument = range.StoryType == WdStoryType.wdMainTextStory;
 
-                foreach (Paragraph para in range.Paragraphs)
+                bool isInFootnotes = range.StoryType == WdStoryType.wdFootnotesStory;
+                bool isInEndnotes = range.StoryType == WdStoryType.wdEndnotesStory;
+                bool isInComments = range.StoryType == WdStoryType.wdCommentsStory;
+
+                bool isInTextFrame = range.StoryType == WdStoryType.wdTextFrameStory;
+
+                bool isInFootnoteSeparator = range.StoryType == WdStoryType.wdFootnoteSeparatorStory;
+				bool isFootnoteContinuationSeparator = range.StoryType == WdStoryType.wdFootnoteContinuationSeparatorStory;
+				bool isEndnoteSeparatorStory = range.StoryType == WdStoryType.wdEndnoteSeparatorStory;
+				bool isEndnoteContinuationSeparator = range.StoryType == WdStoryType.wdEndnoteContinuationSeparatorStory;
+				bool isEndnoteContinuationNotice = range.StoryType == WdStoryType.wdEndnoteContinuationNoticeStory;
+
+				HeaderFooter section = GetCurrentHeaderFooter(range);
+                if (section != null)
                 {
-                    int paraStart = para.Range.Start;
-                    int paraEnd = para.Range.End;
-                    // Optionally remove the trailing paragraph mark (¶)
-                    if (paraEnd > paraStart)
-                        paraEnd--;
+					// Create a fresh range for the paragraph.
+					Range paraRange = range;
 
-                    int length = paraEnd - paraStart;
-                    // Calculate the relative offset from the document end at snapshot time.
-                    // For example, if paraStart is 50 and initialDocEnd is 200, then relativeOffset is 150.
-                    int relativeOffset = initialDocEnd - paraStart;
-
-                    paragraphSnapshots.Add((relativeOffset, length));
-                }
-
-                // Iterate in natural (beginning-to-end) order
-                for (int i = 0; i < paragraphSnapshots.Count; i++)
+                    int i = 0;
+                    int count = 1;
+					// Call the lambda.
+					await processParagraph(paraRange, (string status, float progress) => {
+						progressForm.SetProgress((int)Math.Round(i * 100 + progress * 100), count * 100);
+						progressForm.SetStatus(status);
+					});
+				}
+				else
                 {
-                    var (relativeOffset, length) = paragraphSnapshots[i];
-                    // Get the current document end.
-                    int currentDocEnd = doc.Content.End;
-                    // Recalculate the paragraph's start as the currentDocEnd minus the relative offset.
-                    int newParaStart = currentDocEnd - relativeOffset;
-                    int newParaEnd = newParaStart + length;
+                    Document doc = range.Document;
+                    Paragraphs paragraphs = range.Paragraphs;
 
-                    // Clamp the new end if it exceeds the document content.
-                    if (newParaEnd > doc.Content.End)
-                        newParaEnd = doc.Content.End;
+                    int totalParagraphs = range.Paragraphs.Count;
 
-                    // Create a fresh range for the paragraph.
-                    Range paraRange = doc.Range(newParaStart, newParaEnd);
+                    // Capture an initial snapshot:
+                    // For each paragraph, record its length (excluding trailing paragraph mark)
+                    // and its starting position relative to the initial document end.
+                    int initialDocEnd = doc.Content.End;
 
-                    // Call the lambda.
-                    await processParagraph(paraRange, (string status, float progress) =>
+					List<Range> initialChunks = chunkingStrategy.Split(range);
+
+					List<(int relativeOffset, int length)> stableChunks = initialChunks.Select(chunk =>
+					{
+						int chunkStart = chunk.Start;
+						int chunkEnd = chunk.End;
+						if (chunkEnd > chunkStart)
+							chunkEnd--; // Strip paragraph mark
+						int length = chunkEnd - chunkStart;
+						int relativeOffset = initialDocEnd - chunkStart;
+						return (relativeOffset, length);
+					}).ToList();
+
+                    // Iterate in natural (beginning-to-end) order
+                    for (int i = 0; i < stableChunks.Count; i++)
                     {
-                        progressForm.SetProgress((int)Math.Round(i*100 + progress*100), totalParagraphs*100);
-                        progressForm.SetStatus(status);
-                    });
-                    // Update progress.
-                    progressForm.SetProgress(i + 1, totalParagraphs);
-                    if (progressForm.isAborted)
-                        break;
-                    Globals.ThisAddIn.Application.StatusBar = $"Processing paragraph {i + 1} of {totalParagraphs}";
+                        var (relativeOffset, length) = stableChunks[i];
+                        // Get the current document end.
+                        int currentDocEnd = doc.Content.End;
+                        // Recalculate the paragraph's start as the currentDocEnd minus the relative offset.
+                        int newParaStart = currentDocEnd - relativeOffset;
+                        int newParaEnd = newParaStart + length;
+
+                        // Clamp the new end if it exceeds the document content.
+                        if (newParaEnd > doc.Content.End)
+                            newParaEnd = doc.Content.End;
+
+                        if (i == 0)
+                        {
+                            if (newParaStart < range.Start)
+                            {
+                                // first paragraph may be partially selected
+                                newParaStart = range.Start;
+                            }
+                        }
+
+                        if (i == stableChunks.Count - 1)
+                        {
+                            if (newParaEnd > range.End)
+                            {
+                                // last paragraph may be partially selected
+                                newParaEnd = range.End;
+                            }
+                        }
+
+                        // Create a fresh range for the paragraph.
+                        Range paraRange = doc.Range(newParaStart, newParaEnd);
+
+                        // Call the lambda.
+                        await processParagraph(paraRange, (string status, float progress) => {
+                            progressForm.SetProgress((int)Math.Round(i * 100 + progress * 100), totalParagraphs * 100);
+                            progressForm.SetStatus(status);
+                        });
+                        // Update progress.
+                        progressForm.SetProgress(i + 1, totalParagraphs);
+                        if (progressForm.isAborted)
+                            break;
+                        Globals.ThisAddIn.Application.StatusBar = $"Processing paragraph {i + 1} of {totalParagraphs}";
+                    }
                 }
                 progressForm.Close();
                 Globals.ThisAddIn.Application.StatusBar = string.Empty;
@@ -268,66 +463,95 @@ You only provide the corrected text. You do not provide any additional comment.
             return text;
         }
 
-        /// <summary>
-        /// Returns the latest version of the text from a range, ignoring deletions and including insertions.
-        /// </summary>
-        public static string GetText(Range range, bool asXml)
+		/// <summary>
+		/// Returns the latest version of the text from a range, ignoring deletions and including insertions.
+		/// </summary>
+		public static string GetText(Range range, bool asXml)
+		{
+			if (range == null)
+				return string.Empty;
+
+			StringBuilder newText = new StringBuilder();
+			bool hasInsertions = false;
+
+			foreach (Revision rev in range.Revisions)
+			{
+				if (rev.Type == WdRevisionType.wdRevisionInsert)
+				{
+					hasInsertions = true;
+
+					foreach (Paragraph para in rev.Range.Paragraphs)
+					{
+						string listPrefix = "";
+						if (para.Range.ListFormat != null && para.Range.ListFormat.List != null)
+						{
+							listPrefix = para.Range.ListFormat.ListString + " ";
+						}
+
+						string paragraphText;
+						if (asXml)
+						{
+							paragraphText = WordXmlConverter.ConvertRangeToXmlFragment(para.Range);
+						}
+						else
+						{
+							paragraphText = para.Range.Text;
+						}
+
+						newText.Append(listPrefix + paragraphText);
+					}
+				}
+			}
+
+			if (hasInsertions)
+				return WordXmlConverter.SanitizeWordText(newText.ToString());
+
+			// No insertions – fallback to range itself
+			StringBuilder fallbackText = new StringBuilder();
+			foreach (Paragraph para in range.Paragraphs)
+			{
+				string listPrefix = "";
+				if (para.Range.ListFormat != null && para.Range.ListFormat.List != null)
+				{
+					listPrefix = para.Range.ListFormat.ListString + " ";
+				}
+
+				string paragraphText;
+				if (asXml)
+				{
+					paragraphText = WordXmlConverter.ConvertRangeToXmlFragment(para.Range);
+				}
+				else
+				{
+					paragraphText = para.Range.Text;
+				}
+
+				fallbackText.Append(listPrefix + paragraphText);
+			}
+
+			return WordXmlConverter.SanitizeWordText(fallbackText.ToString());
+		}
+
+
+		public static Range ApplyTrackedChanges(List<Diff> diffs, Range selection, bool trackedChanges)
         {
-            if (range == null)
-                return string.Empty;
-
-            // Accept all insertions temporarily to get the latest text
-            StringBuilder newText = new StringBuilder();
-            foreach (Revision rev in range.Revisions)
-            {
-                switch (rev.Type)
-                {
-                    case WdRevisionType.wdRevisionInsert:
-                        // Append inserted text (latest version)
-                        if (asXml)
-                        {
-                            string xmlFragment = WordXmlConverter.ConvertRangeToXmlFragment(rev.Range);
-                            newText.Append(xmlFragment);
-                        }
-                        else
-                        {
-                            newText.Append(rev.Range.Text);
-                        }
-                        break;
-
-                    case WdRevisionType.wdRevisionDelete:
-                        // Ignore deleted text (not part of the latest version)
-                        break;
-
-                    default:
-                        // Other revision types (formatting, etc.) are ignored
-                        break;
-                }
-            }
-
-            // If there are insertions, return them; otherwise, return the current range text
-            if (newText.Length > 0)
-                return newText.ToString();
-
-            if (range.Text == null)
-                return string.Empty;
-
-            if (asXml)
-                return WordXmlConverter.ConvertRangeToXmlFragment(range);
-
-            return range.Text;
-        }
-
-        public static Range ApplyTrackedChanges(List<Diff> diffs, Range selection, bool trackedChanges)
-        {
-            // Duplicate the current selection range.
-            Range rng = selection.Duplicate;
+			// Duplicate the current selection range.
+			Range rng = selection.Duplicate;
             int basePos = rng.Start;
 
-            // Use the provided option to determine deletion behavior.
-            // If trackedChanges is true, deletions are simulated (text remains but is marked deleted)
-            // and we advance the offset. Otherwise, deletions actually remove text and we leave the offset.
-            bool simulateTrackedChanges = trackedChanges;
+			var chars = rng.NewRange(1, 13).Characters;
+            string act = string.Empty;
+			for (int i = 1; i <= chars.Count; i++)
+			{
+				char c = chars[i].Text[0]; // Note: COM collections are 1-based
+                act += c;
+			}
+
+
+			// Use the provided option to determine deletion behavior.
+			// If trackedChanges is true, deletions are simulated (text remains but is marked deleted)
+			// and we advance the offset. Otherwise, deletions actually remove text and we leave the offset.
+			bool simulateTrackedChanges = trackedChanges;
 
             // The offset tracks our position in the original text.
             int offset = 0;
@@ -345,7 +569,7 @@ You only provide the corrected text. You do not provide any additional comment.
                     try
                     {
                         // Create a range covering the text to delete.
-                        Range delRange = selection.Document.Range(basePos + offset, basePos + offset + diff.text.Length);
+                        Range delRange = selection.NewRange(basePos + offset, basePos + offset + diff.text.Length);
                         // don't use .Delete as it triggers auto formatting rules, such as fusion of spaces
                         delRange.Text = "";
 
@@ -369,7 +593,7 @@ You only provide the corrected text. You do not provide any additional comment.
                     try
                     {
                         // Create a range at the current offset.
-                        Range insRange = selection.Document.Range(basePos + offset, basePos + offset);
+                        Range insRange = selection.NewRange(basePos + offset, basePos + offset);
                         insRange.InsertAfter(diff.text);
                         // Advance the offset by the inserted text's length.
                         offset += diff.text.Length;
@@ -380,7 +604,7 @@ You only provide the corrected text. You do not provide any additional comment.
                     }
                 }
             }
-            return selection.Document.Range(basePos, offset);
+            return selection.Document.Range(basePos, basePos + offset);
         }
 
         public static Range ApplyTrackedChanges(string originalText, string modifiedText, Range selection, bool trackedChanges)
@@ -420,6 +644,12 @@ You only provide the corrected text. You do not provide any additional comment.
             string fullText = selectionRange.Text;
             if (string.IsNullOrEmpty(fullText))
                 return selectionRange;
+
+            // skip leading control characters
+            while(selectionRange.End - selectionRange.Start > 0 && selectionRange.NewRange(selectionRange.Start, selectionRange.Start + 1).Text == null)
+			{
+                selectionRange.SetRange(selectionRange.Start + 1, selectionRange.End);
+			}
 
             int len = fullText.Length;
             int leading = 0;
@@ -488,6 +718,15 @@ You only provide the corrected text. You do not provide any additional comment.
         }
 
 
+        public void InsertMarkdown(string markdownText)
+        {
+            var pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+            var document = Markdig.Markdown.Parse(markdownText, pipeline);
+
+            // Insert into Word with proper styling
+            //InsertMarkdownToWord(document);
+        }
+
         public void OnCustomEntryClick(Office.IRibbonControl control)
         {
             // Remove the prefix 'p' to match the stored GUID.
@@ -512,7 +751,10 @@ You only provide the corrected text. You do not provide any additional comment.
                 Selection wholeSelection = app.Selection;
                 var doc = app.ActiveDocument;
 
-                await ProcessParagraphsWithDynamicRecalc(wholeSelection.Range, async (selection, progress) =>
+				await ProcessParagraphsWithDynamicRecalc(
+                    wholeSelection.Range,
+					new ParagraphByParagraphStrategy(),
+                    async (selection, progress) =>
                 {
                     Range trimedSelectionRange = TrimSelection(selection);
                     StringBuilder aiResponseBuilder = new StringBuilder();
@@ -521,7 +763,9 @@ You only provide the corrected text. You do not provide any additional comment.
                     {
                         // Call OpenAI asynchronously
                         var modelSettings = ModelManager.FromSettings();
-                        AsyncCollectionResult<StreamingChatCompletionUpdate> completionUpdates = GetResponseAsync(new Uri(modelSettings.Endpoint), modelSettings.ApiToken, modelSettings.DefaultModel, trimedSelectionRange.Text, doc.Content.Text, IMPROVE_PROMPT);
+                        string model = modelSettings.DefaultModel;
+
+						AsyncCollectionResult<StreamingChatCompletionUpdate> completionUpdates = GetResponseAsync(new Uri(modelSettings.Endpoint), modelSettings.ApiToken, model, trimedSelectionRange.Text, doc.Content.Text, IMPROVE_PROMPT);
                         var enumerator = completionUpdates.GetAsyncEnumerator();
                         while (await enumerator.MoveNextAsync())
                         {
@@ -539,8 +783,8 @@ You only provide the corrected text. You do not provide any additional comment.
 
                         if (trackedChanges)
                             doc.TrackRevisions = prevTrackRevisionsState;
-                    }
-                }
+					}
+				}
                 );
             }
             catch (Exception ex)
@@ -575,7 +819,8 @@ You only provide the corrected text. You do not provide any additional comment.
 
             var app = Globals.ThisAddIn.Application;
             Selection selection = app.Selection;
-            ApplyTrackedChanges(selection.Text, clipboardText, selection.Range, app.ActiveDocument.TrackRevisions);
+
+			ApplyTrackedChanges(selection.Text, clipboardText, selection.Range, app.ActiveDocument.TrackRevisions);
         }
 
         public void OnTrackChangeClick(Office.IRibbonControl control, bool pressed)
@@ -662,13 +907,28 @@ You only provide the corrected text. You do not provide any additional comment.
         {
             bool preserveStyle = GetPreserveStyleSettings();
 
-            string styleInstruction = string.Empty;
+            string promptIntro = "You are a text transformation assistant. Respond only with the transformed text, omitting any introductions or conclusions";
+
+			string styleInstruction = string.Empty;
             if (preserveStyle)
             {
-                styleInstruction = "In your answer, try to preserve the XML formatting.\n";
-            }
+                styleInstruction = @"
+#### XML Formatting
+When the text contain XML formatting, you preserve the XML formatting in your response.
 
-            try
+";
+            }
+            else
+            {
+				styleInstruction = @"
+#### Formatting
+You preserve the formatting of the original text, if any.
+
+";
+
+			}
+
+			try
             {
                 // Ensure that a prompt has been selected.
                 PromptEntry prompt = new PromptManager().Get(_selectedPromptId);
@@ -685,81 +945,126 @@ You only provide the corrected text. You do not provide any additional comment.
                 var app = Globals.ThisAddIn.Application;
                 Selection wholeSelection = app.Selection;
 
-                await ProcessParagraphsWithDynamicRecalc(wholeSelection.Range, async (selection, progress) =>
+                prompt.Mode = ChunkingMode.Paragraph;
+
+				IParagraphChunkingStrategy strategy = null;
+				switch (prompt.Mode)
+                {
+					case ChunkingMode.WholeBlock:
+						strategy = new WholeRangeStrategy();
+                        break;
+                    case ChunkingMode.Paragraph:
+                        strategy = new ParagraphByParagraphStrategy();
+                        break;
+				    case ChunkingMode.ListAware:
+				    default:
+						strategy = new ListAwareChunkingStrategy();
+						break;
+				}
+
+				await ProcessParagraphsWithDynamicRecalc(wholeSelection.Range, strategy, async (selection, progress) =>
                 {
                     progress("formatting question", 0.0f);
 
-                    string thoughts = string.Empty;
-                    var doc = app.ActiveDocument;
-
-                    // Trim the selection to remove any leading/trailing whitespace.
-                    Range trimmedSelectionRange = TrimSelection(selection);
 
                     if (selection != null && selection.Text != null && selection.Text.Trim().Length > 0)
                     {
-                        // Get a range of text from the beginning of the document to the selection start.
-                        Range prefixRange = doc.Content;
-                        prefixRange.SetRange(0, selection.Start);
-                        Range suffixRange = doc.Content;
-                        suffixRange.SetRange(selection.End, doc.Content.End);
+						string thoughts = string.Empty;
 
-                        // Use the prompt text from the selected prompt.
-                        string promptText = string.Empty;
+						// Trim the selection to remove any leading/trailing whitespace.
+						Range trimmedSelectionRange = TrimSelection(selection);
 
-                        // ideally we would provide the context with formatting, but in reality, COM interop is too slow
-                        // and fetching style for an entire document can take minutes if not hours on long documents.
-                        bool contextWithStyle = /*preserveStyle*/false;
-                        string prefix = GetText(prefixRange, contextWithStyle).Trim();
-                        string suffix = GetText(suffixRange, contextWithStyle).Trim();
+						// Use the prompt text from the selected prompt.
+						string promptText = string.Empty;
 
-                        prefix.Replace("\f", "<break/>");
-                        suffix.Replace("\f", "<break/>");
+                        string prefix = string.Empty;
+                        string suffix = string.Empty;
+                        string wholeText = string.Empty;
 
-                        if (prompt.Context == ContextType.none.ToString() || (string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(suffix)))
+						HeaderFooter section = GetCurrentHeaderFooter(selection);
+                        Range wholeRange = null;
+                        if (section != null)
+                        {
+                            wholeRange = section.Range;
+                        }
+                        else
+                        {
+                            wholeRange = selection.Document.Content;
+                        }
+
+						// Get a range of text from the beginning of the document to the selection start.
+						Range prefixRange = wholeRange.NewRange(0, selection.Start);
+						Range suffixRange = wholeRange.NewRange(selection.End, wholeRange.End);
+
+						// ideally we would provide the context with formatting, but in reality, COM interop is too slow
+						// and fetching style for an entire document can take minutes if not hours on long documents.
+						bool contextWithStyle = /*preserveStyle*/false;
+						prefix = GetText(prefixRange, contextWithStyle).Trim();
+						suffix = GetText(suffixRange, contextWithStyle).Trim();
+						wholeText = GetText(wholeRange, contextWithStyle).Trim();
+						prefix = prefix.Replace("\f", "<break/>");
+						suffix = suffix.Replace("\f", "<break/>");
+						prefix = prefix.Replace("\u000B", "<vt/>");
+						suffix = suffix.Replace("\u000B", "<vt/>");
+
+						if (prompt.Context == ContextType.none.ToString() || (string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(suffix)))
+						{
+                            prefix = string.Empty;
+							suffix = string.Empty;
+							wholeText = string.Empty;
+						}
+						else if (prompt.Context == ContextType.prefix.ToString() || string.IsNullOrEmpty(suffix))
+                        {
+							suffix = string.Empty;
+							wholeText = string.Empty;
+						}
+						else if (prompt.Context == ContextType.suffix.ToString() || string.IsNullOrEmpty(prefix))
+                        {
+							prefix = string.Empty;
+							wholeText = string.Empty;
+						}
+                        else
+                        {
+							prefix = string.Empty;
+							suffix = string.Empty;
+						}
+
+
+						if (string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(suffix) && string.IsNullOrEmpty(wholeText))
                         {
                             promptText = $@"
-## INSTRUCTIONS
-
+{promptIntro}
 {prompt.Prompt}
 {styleInstruction}
 
 ";
                         }
-                        else if (prompt.Context == ContextType.prefix.ToString() || string.IsNullOrEmpty(suffix))
+                        else if (!string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(suffix) && string.IsNullOrEmpty(wholeText))
                         {
                             promptText = $@"
-
-## INSTRUCTIONS
-
+{promptIntro}
 {prompt.Prompt}
 {styleInstruction}
 
-So far, this is the content of the document, provided here for context:
+### Context
 
-### TEXT PRECEEDING THE INSTRUCTIONS
+The document so far contains the following text - your response will be appended directly after:
 
-<document>
 {prefix}                            
-</document>
 
 ";
                         }
-                        else if (prompt.Context == ContextType.suffix.ToString() || string.IsNullOrEmpty(prefix))
+                        else if (string.IsNullOrEmpty(prefix) && !string.IsNullOrEmpty(suffix) && string.IsNullOrEmpty(wholeText))
                         {
                             promptText = $@"
-
-## INSTRUCTIONS
-
+{promptIntro}
 {prompt.Prompt}
 {styleInstruction}
 
-Your answer will be inserted as a prefix to the following text, provided here for context (do not repeat it):
+### Context
+Your response will be inserted immediately before the following text (do not repeat it):
 
-### TEXT FOLLOWING THE INSTRUCTIONS
-
-<document>
 {suffix}                            
-</document>
 
 ";
                         }
@@ -767,24 +1072,15 @@ Your answer will be inserted as a prefix to the following text, provided here fo
                         {
                             promptText = $@"
 
-## INSTRUCTIONS
-
+{promptIntro}
 {prompt.Prompt}
 {styleInstruction}
 
-The document your are editing is between the following text, provided for context (do not repeat this text in your answer):
+### Context
 
-### TEXT IMMEDIATELY BEFORE YOUR ANSWER:
+The text you are editing is part of the following document:
 
-<document>
-{prefix}
-</document>
-
-### TEXT IMMEDIATELY AFTER YOUR ANSWER:
-
-<document>
-{suffix}
-</document>
+{wholeText}
 
 ";
                         }
@@ -806,7 +1102,15 @@ The document your are editing is between the following text, provided for contex
                         }
 
                         progress("waiting response from " + model, 0.1f);
-                        AsyncCollectionResult<StreamingChatCompletionUpdate> completionUpdates = GetResponseAsync(new Uri(modelSettings.Endpoint), modelSettings.ApiToken, modelSettings.DefaultModel, xmlTrimmedSelectionRange, "", promptText);
+                        string instructions = $@"
+Work on the following text (and only the following text):
+
+########## TEXT BEGINS HERE
+{xmlTrimmedSelectionRange}
+########## TEXT ENDS HERE
+";
+
+						AsyncCollectionResult<StreamingChatCompletionUpdate> completionUpdates = GetResponseAsync(new Uri(modelSettings.Endpoint), modelSettings.ApiToken, model, instructions, "", promptText);
                         var enumerator = completionUpdates.GetAsyncEnumerator();
                         while (await enumerator.MoveNextAsync())
                         {
@@ -844,7 +1148,7 @@ The document your are editing is between the following text, provided for contex
 
                         if (prompt.Output == OutputType.text.ToString())
                         {
-                            bool prevTrackRevisionsState = doc.TrackRevisions;
+                            bool prevTrackRevisionsState = selection.Document.TrackRevisions;
                             Range insertRange = null;
                             if (preserveStyle)
                             {
@@ -853,35 +1157,50 @@ The document your are editing is between the following text, provided for contex
                             else
                             {
                                 if (trackedChanges)
-                                    doc.TrackRevisions = true;
+									selection.Document.TrackRevisions = true;
 
                                 // Apply the changes to the document.
                                 insertRange = ApplyTrackedChanges(trimmedSelectionRange.Text, aiResponse, trimmedSelectionRange, trackedChanges);
 
                                 if (trackedChanges)
-                                    doc.TrackRevisions = prevTrackRevisionsState;
+									selection.Document.TrackRevisions = prevTrackRevisionsState;
                             }
 
                             if (GetThoughtsAsCommentsSettings())
                             {
-                                if (string.IsNullOrWhiteSpace(thoughts) == false && insertRange != null)
+                                // comments are not supported in headers and footers
+                                if (selection.Comments != null)
                                 {
-                                    Range commentRange = doc.Range(insertRange.Start, insertRange.Start);
-                                    doc.Comments.Add(commentRange, thoughts.Trim());
-                                }
-                            }
+									if (string.IsNullOrWhiteSpace(thoughts) == false && insertRange != null)
+									{
+										Range commentRange = insertRange.NewRange(insertRange.Start, insertRange.Start);
+
+										selection.Comments.Add(commentRange, thoughts.Trim());
+									}
+								}
+							}
                         }
                         else if (prompt.Output == OutputType.comments.ToString())
                         {
-                            Range commentRange = doc.Range(trimmedSelectionRange.Start, trimmedSelectionRange.Start);
-                            if (GetThoughtsAsCommentsSettings())
+                            Range commentRange = trimmedSelectionRange.NewRange(trimmedSelectionRange.Start, trimmedSelectionRange.Start);
+
+							if (GetThoughtsAsCommentsSettings())
                             {
-                                if (string.IsNullOrWhiteSpace(thoughts) == false)
-                                    doc.Comments.Add(commentRange, thoughts.Trim());
-                            }
+                                // comments are not supported in headers and footers
+                                if (selection.Comments != null)
+                                {
+									if (string.IsNullOrWhiteSpace(thoughts) == false)
+										selection.Comments.Add(commentRange, thoughts.Trim());
+								}
+							}
                             if (string.IsNullOrWhiteSpace(aiResponse) == false && aiResponse.Trim().ToUpper() != "NO COMMENTS")
-                                doc.Comments.Add(commentRange, aiResponse);
-                        }
+                            {
+                                if (selection.Comments != null)
+                                {
+									selection.Comments.Add(commentRange, aiResponse);
+                                }
+							}
+						}
                         else
                         {
                             throw new Exception("Unknown output type: " + prompt.Output);

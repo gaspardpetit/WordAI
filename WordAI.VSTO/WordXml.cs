@@ -59,153 +59,93 @@ namespace WordAI
 
             return sb.ToString();
         }
-        public static string ConvertRangeToXmlFragmentChar(Range range)
+
+		public static string SanitizeWordText(string text)
         {
-            if (range == null)
-                throw new ArgumentNullException(nameof(range));
-
-            var sb = new StringBuilder();
-            int charCount = range.Characters.Count;
-            if (charCount == 0)
-                return string.Empty;
-
-            // Reset profiling timers
-            totalAttrTime.Reset();
-            styleFetchTime.Reset();
-            fontFetchTime.Reset();
-            colorFetchTime.Reset();
-
-            Stopwatch totalTime = Stopwatch.StartNew();
-            Stopwatch attrTime = new Stopwatch();
-            Stopwatch loopTime = new Stopwatch();
-            Stopwatch buildXmlTime = new Stopwatch();
-
-            int segmentStartIndex = 1;
-
-            attrTime.Start();
-            var lastAttrs = GetFormattingAttributes(range.Characters[1]); // First character attributes
-            attrTime.Stop();
-
-            loopTime.Start();
-            for (int i = 2; i <= charCount; i++)
-            {
-                attrTime.Start();
-                var currentAttrs = GetFormattingAttributes(range.Characters[i]);
-                attrTime.Stop();
-
-                if (!AttributesEqual(lastAttrs, currentAttrs))
-                {
-                    // Create a subrange for the current segment.
-                    Range segRange = range.Duplicate;
-                    segRange.Start = range.Characters[segmentStartIndex].Start;
-                    segRange.End = range.Characters[i - 1].End;
-
-                    // Escape HTML reserved characters.
-                    string segmentText = WebUtility.HtmlEncode(segRange.Text);
-
-                    buildXmlTime.Start();
-                    sb.Append(BuildXmlTag(lastAttrs, segmentText));
-                    buildXmlTime.Stop();
-
-                    // Start a new segment.
-                    segmentStartIndex = i;
-                    lastAttrs = currentAttrs;
-                }
-            }
-            loopTime.Stop();
-
-            // Process the final segment.
-            Range lastSegment = range.Duplicate;
-            lastSegment.Start = range.Characters[segmentStartIndex].Start;
-            lastSegment.End = range.Characters[charCount].End;
-            string lastText = WebUtility.HtmlEncode(lastSegment.Text);
-
-            buildXmlTime.Start();
-            sb.Append(BuildXmlTag(lastAttrs, lastText));
-            buildXmlTime.Stop();
-
-            totalTime.Stop();
-
-            // Print profiling results
-            Debug.WriteLine($"Total Execution Time: {totalTime.ElapsedMilliseconds} ms");
-            Debug.WriteLine($"Time Spent in GetFormattingAttributes: {totalAttrTime.ElapsedMilliseconds} ms");
-            Debug.WriteLine($"   - Style Fetch Time: {styleFetchTime.ElapsedMilliseconds} ms");
-            Debug.WriteLine($"   - Font Fetch Time: {fontFetchTime.ElapsedMilliseconds} ms");
-            Debug.WriteLine($"   - Color Fetch Time: {colorFetchTime.ElapsedMilliseconds} ms");
-            Debug.WriteLine($"Time Spent in Character Iteration: {loopTime.ElapsedMilliseconds} ms");
-            Debug.WriteLine($"Time Spent in XML Construction: {buildXmlTime.ElapsedMilliseconds} ms");
-
-            return sb.ToString();
+            return text.Replace("\a", "");
         }
-        public static string ConvertRangeToXmlFragment(Range range)
+
+
+        public static string ConvertRangeToXmlFragment(Range fromRange)
         {
-            if (range == null)
-                throw new ArgumentNullException(nameof(range));
+            if (fromRange == null)
+                throw new ArgumentNullException(nameof(fromRange));
 
-            var sb = new StringBuilder();
-            int wordCount = range.Words.Count;
-            if (wordCount == 0)
-                return string.Empty;
+			Stopwatch totalTime = Stopwatch.StartNew();
+			Stopwatch loopTime = new Stopwatch();
+			Stopwatch buildXmlTime = new Stopwatch();
+			Stopwatch attrTime = new Stopwatch();
 
-            // Reset profiling timers
-            totalAttrTime.Reset();
-            styleFetchTime.Reset();
-            fontFetchTime.Reset();
-            colorFetchTime.Reset();
-
-            Stopwatch totalTime = Stopwatch.StartNew();
-            Stopwatch attrTime = new Stopwatch();
-            Stopwatch loopTime = new Stopwatch();
-            Stopwatch buildXmlTime = new Stopwatch();
-
-            int segmentStartIndex = 1;
-
-            attrTime.Start();
-            var lastAttrs = GetFormattingAttributes(range.Words[1]); // First word's attributes
-            attrTime.Stop();
-
-            loopTime.Start();
-            for (int i = 2; i <= wordCount; i++)
+			XElement xml = new XElement("doc");
+			foreach (Paragraph paragraph in fromRange.Paragraphs)
             {
-                attrTime.Start();
-                var currentAttrs = GetFormattingAttributes(range.Words[i]);
-                attrTime.Stop();
+                Range pRange = AssistantRibbon.TrimSelection(paragraph.Range);
+				XElement xmlP = new XElement("p");
+				xmlP.SetAttributeValue("align", paragraph.Alignment.ToString());
+				xmlP.SetAttributeValue("indent", paragraph.LeftIndent.ToString());
+				xmlP.SetAttributeValue("space", paragraph.SpaceBefore.ToString());
+				xmlP.SetAttributeValue("spaceAfter", paragraph.SpaceAfter.ToString());
+				xml.Add(xmlP);
 
-                if (!AttributesEqual(lastAttrs, currentAttrs))
-                {
-                    // Create a subrange for the current segment.
-                    Range segRange = range.Duplicate;
-                    segRange.Start = range.Words[segmentStartIndex].Start;
-                    segRange.End = range.Words[i - 1].End;
+				int wordCount = pRange.Words.Count;
+				if (wordCount == 0)
+					return string.Empty;
 
-                    // Escape HTML reserved characters.
-                    string segmentText = WebUtility.HtmlEncode(segRange.Text);
+				// Reset profiling timers
+				totalAttrTime.Reset();
+				styleFetchTime.Reset();
+				fontFetchTime.Reset();
+				colorFetchTime.Reset();
 
-                    buildXmlTime.Start();
-                    sb.Append(BuildXmlTag(lastAttrs, segmentText));
-                    buildXmlTime.Stop();
+				int segmentStartIndex = 1;
 
-                    // Start a new segment.
-                    segmentStartIndex = i;
-                    lastAttrs = currentAttrs;
-                }
-            }
-            loopTime.Stop();
+				attrTime.Start();
+				var lastAttrs = GetFormattingAttributes(pRange.Words[1]); // First word's attributes
+				attrTime.Stop();
 
-            // Process the final segment.
-            Range lastSegment = range.Duplicate;
-            lastSegment.Start = range.Words[segmentStartIndex].Start;
-            lastSegment.End = range.Words[wordCount].End;
-            string lastText = WebUtility.HtmlEncode(lastSegment.Text);
+				loopTime.Start();
+				for (int i = 2; i <= wordCount; i++)
+				{
+					attrTime.Start();
+					var currentAttrs = GetFormattingAttributes(pRange.Words[i]);
+					attrTime.Stop();
 
-            buildXmlTime.Start();
-            sb.Append(BuildXmlTag(lastAttrs, lastText));
-            buildXmlTime.Stop();
+					if (!AttributesEqual(lastAttrs, currentAttrs))
+					{
+						// Create a subrange for the current segment.
+						Range segRange = pRange.Duplicate;
+						segRange.Start = pRange.Words[segmentStartIndex].Start;
+						segRange.End = pRange.Words[i - 1].End;
 
-            totalTime.Stop();
+						// Escape HTML reserved characters.
+						string segmentText = WebUtility.HtmlEncode(SanitizeWordText(segRange.Text));
 
-            // Print profiling results
-            Debug.WriteLine($"Total Execution Time: {totalTime.ElapsedMilliseconds} ms");
+						buildXmlTime.Start();
+						xmlP.Add(BuildXmlTag(lastAttrs, segmentText));
+						buildXmlTime.Stop();
+
+						// Start a new segment.
+						segmentStartIndex = i;
+						lastAttrs = currentAttrs;
+					}
+				}
+				loopTime.Stop();
+
+				// Process the final segment.
+				Range lastSegment = pRange.Duplicate;
+				lastSegment.Start = pRange.Words[segmentStartIndex].Start;
+				lastSegment.End = pRange.Words[wordCount].End;
+				string lastText = WebUtility.HtmlEncode(lastSegment.Text);
+
+				buildXmlTime.Start();
+				xmlP.Add(BuildXmlTag(lastAttrs, lastText));
+				buildXmlTime.Stop();
+			}
+			totalTime.Stop();
+
+
+			// Print profiling results
+			Debug.WriteLine($"Total Execution Time: {totalTime.ElapsedMilliseconds} ms");
             Debug.WriteLine($"Time Spent in GetFormattingAttributes: {totalAttrTime.ElapsedMilliseconds} ms");
             Debug.WriteLine($"   - Style Fetch Time: {styleFetchTime.ElapsedMilliseconds} ms");
             Debug.WriteLine($"   - Font Fetch Time: {fontFetchTime.ElapsedMilliseconds} ms");
@@ -213,7 +153,7 @@ namespace WordAI
             Debug.WriteLine($"Time Spent in Word Iteration: {loopTime.ElapsedMilliseconds} ms");
             Debug.WriteLine($"Time Spent in XML Construction: {buildXmlTime.ElapsedMilliseconds} ms");
 
-            return sb.ToString();
+			return xml.ToString();
         }
 
         private class Segment
@@ -231,6 +171,19 @@ namespace WordAI
             public string Background { get; set; }
             public string Foreground { get; set; }
             public string Highlight { get; set; }
+        }
+		class ProcessedParagraphStyle
+		{
+            public string Align;
+            public string Indent;
+            public string Space;
+            public string SpaceAfter;
+		}
+
+		class ProcessedParagraph
+        {
+            public ProcessedParagraphStyle style = new ProcessedParagraphStyle();
+			public List<Segment> segments = new List<Segment>();
         }
 
         /// <summary>
@@ -252,53 +205,68 @@ namespace WordAI
             string decodedXml = WebUtility.HtmlDecode(xmlFragment);
 
             // Parse the XML fragment by wrapping it in a temporary root element.
-            string wrappedXml = $"<root>{decodedXml}</root>";
+            string wrappedXml = decodedXml;
             XDocument xdoc = XDocument.Parse(wrappedXml, LoadOptions.PreserveWhitespace);
 
             // Build a list of segments from the XML.
             // Build a list of segments from the XML by iterating over all child nodes.
-            List<Segment> segments = new List<Segment>();
+            List<ProcessedParagraph> paragraphs = new List<ProcessedParagraph>();
             foreach (var node in xdoc.Root.Nodes())
             {
-                if (node is XElement element && element.Name.LocalName == "style")
+                if (node is XElement element && element.Name.LocalName == "p")
                 {
-                    // Process <style> elements with formatting attributes.
-                    var seg = new Segment
-                    {
-                        StyleName = (string)element.Attribute("name") ?? "",
-                        FontName = (string)element.Attribute("font") ?? "",
-                        SizeStr = (string)element.Attribute("size") ?? "",
-                        BoldStr = (string)element.Attribute("bold") ?? "",
-                        ItalicStr = (string)element.Attribute("italic") ?? "",
-                        Underline = (string)element.Attribute("underline") ?? "",
-                        Strike = (string)element.Attribute("strike") ?? "",
-                        Color = (string)element.Attribute("color") ?? "",
-                        Background = (string)element.Attribute("background") ?? "",
-                        Foreground = (string)element.Attribute("foreground") ?? "",
-                        Highlight = (string)element.Attribute("highlight") ?? ""
-                    };
+                    ProcessedParagraph p = new ProcessedParagraph();
+                    paragraphs.Add(p);
+					// Process <style> elements with formatting attributes.
+					p.style = new ProcessedParagraphStyle {
+						Align = (string)element.Attribute("align") ?? "",
+						Indent = (string)element.Attribute("indent") ?? "",
+						Space = (string)element.Attribute("space") ?? "",
+						SpaceAfter = (string)element.Attribute("spaceAfter") ?? "",
+					};
+					foreach (var childNode in element.Nodes())
+					{
+						if (childNode is XElement childElement && childElement.Name.LocalName == "style")
+						{
+							// Process <style> elements with formatting attributes.
+							var seg = new Segment {
+								StyleName = (string)childElement.Attribute("name") ?? "",
+								FontName = (string)childElement.Attribute("font") ?? "",
+								SizeStr = (string)childElement.Attribute("size") ?? "",
+								BoldStr = (string)childElement.Attribute("bold") ?? "",
+								ItalicStr = (string)childElement.Attribute("italic") ?? "",
+								Underline = (string)childElement.Attribute("underline") ?? "",
+								Strike = (string)childElement.Attribute("strike") ?? "",
+								Color = (string)childElement.Attribute("color") ?? "",
+								Background = (string)childElement.Attribute("background") ?? "",
+								Foreground = (string)childElement.Attribute("foreground") ?? "",
+								Highlight = (string)childElement.Attribute("highlight") ?? ""
+							};
 
-                    // Decode text from the element.
-                    seg.Text = WebUtility.HtmlDecode(element.Value);
-                    segments.Add(seg);
-                }
-                else if (node is XText textNode)
-                {
-                    // Process plain text nodes.
-                    var seg = new Segment
-                    {
-                        Text = WebUtility.HtmlDecode(textNode.Value)
-                    };
-                    segments.Add(seg);
-                }
-                // Optionally, you can handle other node types (like CDATA) if needed.
+							seg.Text = ParseStyledText(childElement);
+							p.segments.Add(seg);
+						}
+						else if (node is XText textNode)
+						{
+							// Process plain text nodes.
+							var seg = new Segment {
+								Text = WebUtility.HtmlDecode(textNode.Value)
+							};
+							p.segments.Add(seg);
+						}
+						// Optionally, you can handle other node types (like CDATA) if needed.
+					}
+				}
             }
 
             // Concatenate all segments' text.
             StringBuilder sbAllText = new StringBuilder();
-            foreach (var seg in segments)
+            foreach (var para in paragraphs)
             {
-                sbAllText.Append(seg.Text);
+				foreach (var seg in para.segments)
+				{
+					sbAllText.Append(seg.Text);
+				}
             }
             string fullText = sbAllText.ToString();
 
@@ -314,113 +282,153 @@ namespace WordAI
 
             // Second pass: Apply formatting to each segment.
             int offset = 0;
-            foreach (var seg in segments)
+            foreach (var para in paragraphs)
             {
-                int segmentStart = insertStart + offset;
-                int segmentEnd = segmentStart + seg.Text.Length;
-                Range segmentRange = targetRange.Document.Range(segmentStart, segmentEnd);
-
-                // Apply the named style only if different.
-                if (!string.IsNullOrEmpty(seg.StyleName))
+                foreach (var seg in para.segments)
                 {
-                    try
+                    int segmentStart = insertStart + offset;
+                    int segmentEnd = segmentStart + seg.Text.Length;
+                    Range segmentRange = targetRange.NewRange(segmentStart, segmentEnd);
+
+                    // Apply the named style only if different.
+                    if (!string.IsNullOrEmpty(seg.StyleName))
                     {
-                        Style currentStyle = segmentRange.get_Style() as Style;
-                        if (currentStyle == null || !currentStyle.NameLocal.Equals(seg.StyleName, StringComparison.OrdinalIgnoreCase))
+                        try
                         {
-                            segmentRange.set_Style(seg.StyleName);
+                            //Style currentStyle = segmentRange.get_Style() as Style;
+                            //if (currentStyle == null || !currentStyle.NameLocal.Equals(seg.StyleName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                segmentRange.set_Style(seg.StyleName);
+                            }
+                        }
+                        catch
+                        {
+                            // Optionally handle missing style errors.
                         }
                     }
-                    catch
+
+                    // Apply font formatting only if different.
+                    if (!string.IsNullOrEmpty(seg.FontName) && segmentRange.Font.Name != seg.FontName)
+                        segmentRange.Font.Name = seg.FontName;
+
+                    if (!string.IsNullOrEmpty(seg.SizeStr) && float.TryParse(seg.SizeStr, out float size) && segmentRange.Font.Size != size)
+                        segmentRange.Font.Size = size;
+
+                    if (!string.IsNullOrEmpty(seg.BoldStr))
                     {
-                        // Optionally handle missing style errors.
+                        int desiredBold = (seg.BoldStr.ToLower() == "true" ? -1 : 0);
+                        if (segmentRange.Font.Bold != desiredBold)
+                            segmentRange.Font.Bold = desiredBold;
                     }
-                }
 
-                // Apply font formatting only if different.
-                if (!string.IsNullOrEmpty(seg.FontName) && segmentRange.Font.Name != seg.FontName)
-                    segmentRange.Font.Name = seg.FontName;
-
-                if (!string.IsNullOrEmpty(seg.SizeStr) && float.TryParse(seg.SizeStr, out float size) && segmentRange.Font.Size != size)
-                    segmentRange.Font.Size = size;
-
-                if (!string.IsNullOrEmpty(seg.BoldStr))
-                {
-                    int desiredBold = (seg.BoldStr.ToLower() == "true" ? -1 : 0);
-                    if (segmentRange.Font.Bold != desiredBold)
-                        segmentRange.Font.Bold = desiredBold;
-                }
-
-                if (!string.IsNullOrEmpty(seg.ItalicStr))
-                {
-                    int desiredItalic = (seg.ItalicStr.ToLower() == "true" ? -1 : 0);
-                    if (segmentRange.Font.Italic != desiredItalic)
-                        segmentRange.Font.Italic = desiredItalic;
-                }
-
-                if (!string.IsNullOrEmpty(seg.Underline))
-                {
-                    // Try to parse the string to a WdUnderline enum value (case-insensitive)
-                    if (Enum.TryParse(seg.Underline, true, out WdUnderline parsedUnderline))
+                    if (!string.IsNullOrEmpty(seg.ItalicStr))
                     {
-                        if (segmentRange.Font.Underline != parsedUnderline)
-                            segmentRange.Font.Underline = parsedUnderline;
+                        int desiredItalic = (seg.ItalicStr.ToLower() == "true" ? -1 : 0);
+                        if (segmentRange.Font.Italic != desiredItalic)
+                            segmentRange.Font.Italic = desiredItalic;
                     }
-                }
 
-                if (!string.IsNullOrEmpty(seg.Strike))
-                {
-                    int desiredStrike = (seg.Strike.ToLower() == "true" ? -1 : 0);
-                    if (segmentRange.Font.StrikeThrough != desiredStrike)
-                        segmentRange.Font.StrikeThrough = desiredStrike;
-                }
-
-                // Apply Foreground (Text) Color.
-                if (!string.IsNullOrEmpty(seg.Color))
-                {
-                    WdColor wdColor = RGBStringToWdColor(seg.Color);
-                    if (segmentRange.Font.Color != wdColor)
-                        segmentRange.Font.Color = wdColor;
-                }
-
-                // Apply Background (Shading) Color.
-                if (!string.IsNullOrEmpty(seg.Background))
-                {
-                    WdColor wdBackColor = RGBStringToWdColor(seg.Background);
-                    if (segmentRange.Shading.BackgroundPatternColor != wdBackColor)
-                        segmentRange.Shading.BackgroundPatternColor = wdBackColor;
-                }
-
-                // Apply Background (Shading) Color.
-                if (!string.IsNullOrEmpty(seg.Foreground))
-                {
-                    WdColor wdBackColor = RGBStringToWdColor(seg.Foreground);
-                    if (segmentRange.Shading.ForegroundPatternColor != wdBackColor)
-                        segmentRange.Shading.ForegroundPatternColor = wdBackColor;
-                }
-
-                // Apply Highlight Color.
-                if (!string.IsNullOrEmpty(seg.Highlight))
-                {
-                    if (int.TryParse(seg.Highlight, out int highlightValue))
+                    if (!string.IsNullOrEmpty(seg.Underline))
                     {
-                        WdColorIndex wdHighlight = (WdColorIndex)highlightValue;
-                        if (segmentRange.HighlightColorIndex != wdHighlight)
-                            segmentRange.HighlightColorIndex = wdHighlight;
+                        // Try to parse the string to a WdUnderline enum value (case-insensitive)
+                        if (Enum.TryParse(seg.Underline, true, out WdUnderline parsedUnderline))
+                        {
+                            if (segmentRange.Font.Underline != parsedUnderline)
+                                segmentRange.Font.Underline = parsedUnderline;
+                        }
                     }
+
+                    if (!string.IsNullOrEmpty(seg.Strike))
+                    {
+                        int desiredStrike = (seg.Strike.ToLower() == "true" ? -1 : 0);
+                        if (segmentRange.Font.StrikeThrough != desiredStrike)
+                            segmentRange.Font.StrikeThrough = desiredStrike;
+                    }
+
+                    // Apply Foreground (Text) Color.
+                    if (!string.IsNullOrEmpty(seg.Color))
+                    {
+                        WdColor wdColor = RGBStringToWdColor(seg.Color);
+                        if (segmentRange.Font.Color != wdColor)
+                            segmentRange.Font.Color = wdColor;
+                    }
+
+                    // Apply Background (Shading) Color.
+                    if (!string.IsNullOrEmpty(seg.Background))
+                    {
+                        WdColor wdBackColor = RGBStringToWdColor(seg.Background);
+                        if (segmentRange.Shading.BackgroundPatternColor != wdBackColor)
+                            segmentRange.Shading.BackgroundPatternColor = wdBackColor;
+                    }
+
+                    // Apply Background (Shading) Color.
+                    if (!string.IsNullOrEmpty(seg.Foreground))
+                    {
+                        WdColor wdBackColor = RGBStringToWdColor(seg.Foreground);
+                        if (segmentRange.Shading.ForegroundPatternColor != wdBackColor)
+                            segmentRange.Shading.ForegroundPatternColor = wdBackColor;
+                    }
+
+                    // Apply Highlight Color.
+                    if (!string.IsNullOrEmpty(seg.Highlight))
+                    {
+                        if (int.TryParse(seg.Highlight, out int highlightValue))
+                        {
+                            WdColorIndex wdHighlight = (WdColorIndex)highlightValue;
+                            if (segmentRange.HighlightColorIndex != wdHighlight)
+                                segmentRange.HighlightColorIndex = wdHighlight;
+                        }
+                    }
+
+                    offset += seg.Text.Length;
                 }
 
-                offset += seg.Text.Length;
-            }
-            return targetRange.Document.Range(insertStart, offset);
+                if (Enum.TryParse(para.style.Align, out WdParagraphAlignment align))
+					targetRange.ParagraphFormat.Alignment = align;
+				//if (float.TryParse(para.style.Indent, out float indent))
+				//	targetRange.ParagraphFormat.LeftIndent = indent;
+				//if (float.TryParse(para.style.Space, out float space))
+				//	targetRange.ParagraphFormat.SpaceBefore = space;
+				//if (float.TryParse(para.style.SpaceAfter, out float spaceAfter))
+				//	targetRange.ParagraphFormat.SpaceAfter = spaceAfter;
+			}
+			return targetRange.Document.Range(insertStart, offset);
         }
 
-        #region Helper Methods
+		private static string ParseStyledText(XElement element)
+		{
+			// Decode text from the element.
+			var textBuilder = new StringBuilder();
+			foreach (var childNode in element.Nodes())
+			{
+				switch (childNode)
+				{
+					case XText txt:
+						textBuilder.Append(WebUtility.HtmlDecode(txt.Value));
+						break;
 
-        /// <summary>
-        /// Converts a WdColor to an RGB string (e.g., "RGB(255,0,0)").
-        /// </summary>
-        private static string WdColorToRGB(WdColor color)
+					case XElement innerEl when innerEl.Name.LocalName == "vt":
+						textBuilder.Append("\u000B");
+						break;
+
+					case XElement innerEl when innerEl.Name.LocalName == "break":
+						textBuilder.Append("\f");
+						break;
+
+					default:
+						// Optionally log or ignore unknown inline tags
+						break;
+				}
+			}
+			return textBuilder.ToString();
+		}
+
+		#region Helper Methods
+
+		/// <summary>
+		/// Converts a WdColor to an RGB string (e.g., "RGB(255,0,0)").
+		/// </summary>
+		private static string WdColorToRGB(WdColor color)
         {
             int colorValue = (int)color;
             int r = colorValue & 0xFF;
@@ -456,7 +464,7 @@ namespace WordAI
             return WdColor.wdColorAutomatic;
         }
 
-        private static WdColor GetBackgroundColor(Range charRange, Style style)
+        private static WdColor GetBackgroundColor(Range charRange, Microsoft.Office.Interop.Word.Style style)
         {
             try
             {
@@ -482,7 +490,7 @@ namespace WordAI
             // Fetch style and font in one call
             styleFetchTime.Start();
             Range duplicateRange = charRange.Duplicate;
-            Style style = duplicateRange.get_Style() as Style;
+            Microsoft.Office.Interop.Word.Style style = duplicateRange.get_Style() as Microsoft.Office.Interop.Word.Style;
             styleFetchTime.Stop();
 
             fontFetchTime.Start();
@@ -553,7 +561,7 @@ namespace WordAI
 
             // Fetch style and font in one call
             Range duplicateRange = charRange.Duplicate;
-            Style style = duplicateRange.get_Style() as Style;
+            Microsoft.Office.Interop.Word.Style style = duplicateRange.get_Style() as Microsoft.Office.Interop.Word.Style;
             Font font = duplicateRange.Font.Duplicate;
 
             if (style != null)
@@ -623,30 +631,52 @@ namespace WordAI
             return true;
         }
 
-        /// <summary>
-        /// Builds an XML string for a segment given its attributes and text.
-        /// This version omits any attribute whose value is "false" (since those are the default),
-        /// and also omits "underline" if its value is "wdUnderlineNone".
-        /// </summary>
-        private static string BuildXmlTag(Dictionary<string, string> attrs, string text)
-        {
-            var element = new XElement("style");
-            foreach (var kvp in attrs)
-            {
-                // Omit attributes with "false" values.
-                if (kvp.Value == "false")
-                    continue;
-                // Omit underline if it is set to the default (wdUnderlineNone).
-                if (kvp.Key == "underline" && kvp.Value == "wdUnderlineNone")
-                    continue;
-                element.SetAttributeValue(kvp.Key, kvp.Value);
-            }
-            // Replace any form feed with a custom break marker.
-            text = text.Replace("\f", "<break/>");
-            element.Value = text;
-            return element.ToString();
-        }
+		/// <summary>
+		/// Builds an XML string for a segment given its attributes and text.
+		/// This version omits any attribute whose value is "false" (since those are the default),
+		/// and also omits "underline" if its value is "wdUnderlineNone".
+		/// </summary>
+		private static XElement BuildXmlTag(Dictionary<string, string> attrs, string text)
+		{
+			XElement element = new XElement("style");
 
-        #endregion
-    }
+			foreach (var kvp in attrs)
+			{
+				if (kvp.Value == "false")
+					continue;
+				if (kvp.Key == "underline" && kvp.Value == "wdUnderlineNone")
+					continue;
+				element.SetAttributeValue(kvp.Key, kvp.Value);
+			}
+
+			// Tokenize text and insert as mixed content (text + real tags)
+			int index = 0;
+			while (index < text.Length)
+			{
+				if (text[index] == '\f')
+				{
+					element.Add(new XElement("break"));
+					index++;
+				}
+				else if (text[index] == '\u000B')
+				{
+					element.Add(new XElement("vt"));
+					index++;
+				}
+				else
+				{
+					// Capture a run of normal text
+					int start = index;
+					while (index < text.Length && text[index] != '\f' && text[index] != '\u000B')
+						index++;
+					string textChunk = text.Substring(start, index - start);
+					element.Add(new XText(textChunk));
+				}
+			}
+
+			return element;
+		}
+
+		#endregion
+	}
 }

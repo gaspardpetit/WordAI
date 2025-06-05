@@ -1000,7 +1000,7 @@ namespace DiffMatchPatch
                     {
                         length_insertions2 += diffs[pointer].text.Length;
                     }
-                    else
+                    else if (diffs[pointer].operation == Operation.DELETE)
                     {
                         length_deletions2 += diffs[pointer].text.Length;
                     }

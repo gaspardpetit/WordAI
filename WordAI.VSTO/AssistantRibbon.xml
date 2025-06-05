@@ -35,9 +35,9 @@
                   size="large"
                   onAction="OnManageButtonClick"/>
           <dynamicMenu id="DynamicMenu"
-                       getLabel="GetDynamicMenuLabel"
+                  getLabel="GetDynamicMenuLabel"
                   size="large"
-                       getContent="GetDynamicMenuContent" />
+                  getContent="GetDynamicMenuContent" />
           <button id="Execute"
                   label="Execute"
                   size="large"
