@@ -361,7 +361,7 @@ namespace WordAI
                             segmentRange.Shading.BackgroundPatternColor = wdBackColor;
                     }
 
-                    // Apply Background (Shading) Color.
+                    // Apply Foreground (Shading) Color.
                     if (!string.IsNullOrEmpty(seg.Foreground))
                     {
                         WdColor wdBackColor = RGBStringToWdColor(seg.Foreground);
