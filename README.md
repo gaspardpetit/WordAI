@@ -35,7 +35,7 @@ Additional assistants can be configured to perform custom operations. Assistants
 
 ![assistants](doc/img/assistants.png)
 
-The assistant panel allows the creation of new prompts to instruct the LLM on what to do. The instructions are provided to the LLM alone, with the preceeding text, with the text following the current location in the document, or with both preceeding and following text (thereby, providing partial or full context to the LLM). When translating a document, for instance, it is often preferable to provide the whole document so that terms are translated consistently.
+The assistant panel allows the creation of new prompts to instruct the LLM on what to do. The instructions are provided to the LLM alone, with the preceding text, with the text following the current location in the document, or with both preceding and following text (thereby, providing partial or full context to the LLM). When translating a document, for instance, it is often preferable to provide the whole document so that terms are translated consistently.
 
 A specific assistant can also be configured to target a specific model instead of the default one.
 
