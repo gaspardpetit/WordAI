@@ -5,6 +5,8 @@ VisualStudioVersion = 17.12.35728.132
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordAI.VSTO", "WordAI.VSTO.csproj", "{7B212053-97FC-40F2-822B-6E03E110712D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordAI.Tests", "WordAI.Tests\WordAI.Tests.csproj", "{56ED6733-D58B-427D-A58A-68DE421B554B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,9 +15,13 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{7B212053-97FC-40F2-822B-6E03E110712D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7B212053-97FC-40F2-822B-6E03E110712D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7B212053-97FC-40F2-822B-6E03E110712D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7B212053-97FC-40F2-822B-6E03E110712D}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
+                {7B212053-97FC-40F2-822B-6E03E110712D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+                {7B212053-97FC-40F2-822B-6E03E110712D}.Release|Any CPU.Build.0 = Release|Any CPU
+                {56ED6733-D58B-427D-A58A-68DE421B554B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+                {56ED6733-D58B-427D-A58A-68DE421B554B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+                {56ED6733-D58B-427D-A58A-68DE421B554B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+                {56ED6733-D58B-427D-A58A-68DE421B554B}.Release|Any CPU.Build.0 = Release|Any CPU
+        EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
