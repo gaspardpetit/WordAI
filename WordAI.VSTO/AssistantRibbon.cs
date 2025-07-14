@@ -120,7 +120,7 @@ You only provide the corrected text. You do not provide any additional comment.
         public AssistantRibbon()
         {
             if (_selectedPromptId == string.Empty)
-                _selectedPromptId = GetAssistant();
+                _selectedPromptId = GetAssistantId();
         }
 
 		public static async System.Threading.Tasks.Task ProcessWithStrategy(Range range, IParagraphChunkingStrategy splitter, Func<Range, Action<string, float>, System.Threading.Tasks.Task> processParagraph)
@@ -696,25 +696,50 @@ You only provide the corrected text. You do not provide any additional comment.
             return sb.ToString();
         }
 
-        public void SetAssistant(string label)
+        public void SetAssistant(string id, string label)
         {
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath))
             {
-                key.SetValue("CurrentAssistant", label);
+                key.SetValue("CurrentAssistantId", id);
+                key.SetValue("CurrentAssistantLabel", label);
+                key.SetValue("CurrentAssistant", label); // legacy
             }
         }
-        public string GetAssistant()
+
+        public string GetAssistantId()
         {
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath))
             {
-                return key.GetValue("CurrentAssistant", "").ToString();
+                return key.GetValue("CurrentAssistantId", "").ToString();
+            }
+        }
+
+        public string GetAssistantLabel()
+        {
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(RegistryPath))
+            {
+                string label = key.GetValue("CurrentAssistantLabel", "").ToString();
+                if (string.IsNullOrEmpty(label))
+                {
+                    label = key.GetValue("CurrentAssistant", "").ToString();
+                    if (string.IsNullOrEmpty(label))
+                    {
+                        string id = key.GetValue("CurrentAssistantId", "").ToString();
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            var prompt = new PromptManager().Get(id);
+                            label = prompt?.Label ?? string.Empty;
+                        }
+                    }
+                }
+                return label;
             }
         }
 
 
         public string GetDynamicMenuLabel(Office.IRibbonControl control)
         {
-            return GetAssistant();
+            return GetAssistantLabel();
         }
 
 
@@ -734,8 +759,8 @@ You only provide the corrected text. You do not provide any additional comment.
             _selectedPromptId = guid;
             PromptEntry prompt = new PromptManager().Get(_selectedPromptId);
 
-            // Update the dynamic menu label to the selected prompt's name.
-            SetAssistant(prompt.Label);
+            // Update the stored assistant id and label.
+            SetAssistant(prompt.Id, prompt.Label);
 
             // Force the Ribbon to refresh the dynamic menu's label.
             ribbon.InvalidateControl("DynamicMenu");
