@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.12.35728.132
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordAI.VSTO", "WordAI.VSTO.csproj", "{7B212053-97FC-40F2-822B-6E03E110712D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordAI.VSTO", "WordAI.VSTO\WordAI.VSTO.csproj", "{7B212053-97FC-40F2-822B-6E03E110712D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordAI.Tests", "..\WordAI.Tests\WordAI.Tests.csproj", "{D7F21117-4710-97F2-2D2B-6FF261223F2C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WordAI.Tests", "WordAI.Tests\WordAI.Tests.csproj", "{D7F21117-4710-97F2-2D2B-6FF261223F2C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
