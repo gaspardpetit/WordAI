@@ -798,7 +798,7 @@ You only provide the corrected text. You do not provide any additional comment.
                             aiResponseBuilder.Append(completionUpdate.ContentUpdate[0].Text);
                         }
 
-                        string aiResponse = aiResponseBuilder.ToString();
+                        string aiResponse = aiResponseBuilder.ToString().Trim();
 
                         bool prevTrackRevisionsState = doc.TrackRevisions;
                         if (trackedChanges)
@@ -1173,7 +1173,7 @@ Work on the following text (and only the following text):
                         progress("formatting response", 0.9f);
 
 
-                        string aiResponse = aiResponseBuilder.ToString();
+                        string aiResponse = aiResponseBuilder.ToString().Trim();
 
                         if (aiResponse.Trim().StartsWith("<think>")) // this is a thinking model
                         {
