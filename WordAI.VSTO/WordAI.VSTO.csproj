@@ -100,6 +100,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
     <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
     <WarningLevel>4</WarningLevel>
+    <SignManifests>true</SignManifests>
   </PropertyGroup>
   <!--
     This section defines properties that are set when the "Release" configuration is selected.
@@ -124,6 +125,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
     <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
     <WarningLevel>4</WarningLevel>
+    <SignManifests>true</SignManifests>
   </PropertyGroup>
   <!--
     This section specifies references for the project.
@@ -341,10 +343,15 @@
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
   </PropertyGroup>
   <PropertyGroup>
+    <!--
+      Configure ClickOnce manifest signing.  The build expects a valid
+      certificate and manifest key file.  Set these values to the key
+      included in the repository and enable manifest generation.
+    -->
     <ManifestCertificateThumbprint>[YourCertificateThumbprint]</ManifestCertificateThumbprint>
     <ManifestKeyFile>[PathToYourKeyFile.pfx]</ManifestKeyFile>
     <SignManifests>true</SignManifests>
-    <GenerateManifests>false</GenerateManifests>
+    <GenerateManifests>true</GenerateManifests>
   </PropertyGroup>
   <PropertyGroup>
     <ManifestKeyFile>WordAI-Key.pfx</ManifestKeyFile>
