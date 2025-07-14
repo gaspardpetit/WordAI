@@ -803,6 +803,22 @@ You only provide the corrected text. You do not provide any additional comment.
         {
             var settingsForm = new ManageForm();
             settingsForm.ShowDialog();
+
+            // Refresh the dynamic menu to include any changes made
+            ribbon?.InvalidateControl("DynamicMenu");
+
+            // Ensure the selected assistant still exists after edits
+            string currentLabel = GetAssistant();
+            if (!string.IsNullOrEmpty(currentLabel))
+            {
+                var pm = new PromptManager();
+                if (!pm.Prompts.Exists(p => p.Label.Equals(currentLabel, StringComparison.OrdinalIgnoreCase)))
+                {
+                    // Clear the selection if the assistant was removed or renamed
+                    SetAssistant(string.Empty);
+                    _selectedPromptId = string.Empty;
+                }
+            }
         }
 
         public void OnTypeDiffButtonClick(IRibbonControl control)
