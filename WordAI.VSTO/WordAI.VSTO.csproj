@@ -341,7 +341,9 @@
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
   </PropertyGroup>
   <PropertyGroup>
-    <SignManifests>false</SignManifests>
+    <ManifestCertificateThumbprint>[YourCertificateThumbprint]</ManifestCertificateThumbprint>
+    <ManifestKeyFile>[PathToYourKeyFile.pfx]</ManifestKeyFile>
+    <SignManifests>true</SignManifests>
     <GenerateManifests>false</GenerateManifests>
   </PropertyGroup>
   <PropertyGroup>
