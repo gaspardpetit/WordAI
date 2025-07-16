@@ -52,6 +52,8 @@
                   size="large"
                   onAction="OnTypeDiffButtonClick"/>
         </group>
+        <!-- Agents buttons will be inserted below -->
+        <!--AGENTS-->
       </tab>
     </tabs>
   </ribbon>

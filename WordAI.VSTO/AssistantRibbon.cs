@@ -766,6 +766,17 @@ You only provide the corrected text. You do not provide any additional comment.
             ribbon.InvalidateControl("DynamicMenu");
         }
 
+        public void OnPinnedAssistantClick(Office.IRibbonControl control)
+        {
+            // Remove the prefix 'pin' to match the stored GUID
+            string guid = control.Id.Substring(3);
+            _selectedPromptId = guid;
+            PromptEntry prompt = new PromptManager().Get(_selectedPromptId);
+            SetAssistant(prompt.Id, prompt.Label);
+            ribbon.InvalidateControl("DynamicMenu");
+            OnExecuteButtonClick(control);
+        }
+
         public async void OnCorrectButtonClick(IRibbonControl control)
         {
             try
@@ -1261,7 +1272,35 @@ Work on the following text (and only the following text):
 
         public string GetCustomUI(string ribbonID)
         {
-            return GetResourceText("WordAI.AssistantRibbon.xml");
+            string xml = GetResourceText("WordAI.AssistantRibbon.xml");
+            string placeholder = "<!--AGENTS-->";
+            int index = xml.IndexOf(placeholder);
+            if (index >= 0)
+            {
+                string buttons = BuildPinnedButtons();
+                xml = xml.Replace(placeholder, buttons);
+            }
+            return xml;
+        }
+
+        private string BuildPinnedButtons()
+        {
+            var sb = new StringBuilder();
+            var pm = new PromptManager();
+            foreach (var entry in pm.Prompts)
+            {
+                if (entry.Pinned)
+                {
+                    string validId = "pin" + entry.Id;
+                    sb.AppendLine($"        <button id='{validId}' label='{entry.Label}' size='large' imageMso='LightningBolt' onAction='OnPinnedAssistantClick'/>"
+                    );
+                }
+            }
+            if (sb.Length > 0)
+            {
+                return $"<group id='Agents' label='Agents'>\n" + sb.ToString() + "        </group>";
+            }
+            return string.Empty;
         }
 
         #endregion

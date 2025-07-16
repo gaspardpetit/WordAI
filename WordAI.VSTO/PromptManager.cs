@@ -36,8 +36,9 @@ namespace WordAI
         public string Model { get; set; }
         public string Context { get; set; }
         public string Output { get; set; }
-		public ChunkingMode Mode { get; set; }  // Enum: Paragraph, ListAware, WholeBlock
-	}
+                public ChunkingMode Mode { get; set; }  // Enum: Paragraph, ListAware, WholeBlock
+        public bool Pinned { get; set; }
+        }
 
     // A manager that loads and saves prompts from a JSON file.
     public class PromptManager
@@ -71,6 +72,9 @@ namespace WordAI
                         entry.Context = ContextType.document.ToString();
                     if (entry.Output == null)
                         entry.Output = OutputType.text.ToString();
+                    // ensure pinned has a default
+                    // default to false if missing
+                    // (Json.NET will set to false if property absent but explicit for clarity)
                 }
             }
             else

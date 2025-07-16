@@ -39,6 +39,8 @@ The assistant panel allows the creation of new prompts to instruct the LLM on wh
 
 A specific assistant can also be configured to target a specific model instead of the default one.
 
+Pinned assistants can be quickly accessed. When editing an assistant in the Manage Assistants dialog, enable the **Pinned** checkbox to add it directly to the ribbon. Pinned assistants appear under an **Agents** section after the Tools group.
+
 ## Executing Assistants
 
 Assistants are executed by selecting the assistant from the ribbon and pressing "Execute":
