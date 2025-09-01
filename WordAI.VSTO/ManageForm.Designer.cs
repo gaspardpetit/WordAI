@@ -40,6 +40,7 @@
             this.labelContext = new System.Windows.Forms.Label();
             this.checkBoxContextPreceding = new System.Windows.Forms.CheckBox();
             this.checkBoxContextFollowing = new System.Windows.Forms.CheckBox();
+            this.checkBoxPinned = new System.Windows.Forms.CheckBox();
             this.label1 = new System.Windows.Forms.Label();
             this.radioButtonText = new System.Windows.Forms.RadioButton();
             this.radioButtonComments = new System.Windows.Forms.RadioButton();
@@ -172,7 +173,18 @@
             this.checkBoxContextFollowing.TabIndex = 11;
             this.checkBoxContextFollowing.Text = "Following Text";
             this.checkBoxContextFollowing.UseVisualStyleBackColor = true;
-            // 
+            //
+            // checkBoxPinned
+            //
+            this.checkBoxPinned.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.checkBoxPinned.AutoSize = true;
+            this.checkBoxPinned.Location = new System.Drawing.Point(558, 322);
+            this.checkBoxPinned.Name = "checkBoxPinned";
+            this.checkBoxPinned.Size = new System.Drawing.Size(57, 17);
+            this.checkBoxPinned.TabIndex = 12;
+            this.checkBoxPinned.Text = "Pinned";
+            this.checkBoxPinned.UseVisualStyleBackColor = true;
+            //
             // label1
             // 
             this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
@@ -180,7 +192,7 @@
             this.label1.Location = new System.Drawing.Point(305, 351);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(39, 13);
-            this.label1.TabIndex = 12;
+            this.label1.TabIndex = 13;
             this.label1.Text = "Output";
             // 
             // radioButtonText
@@ -189,7 +201,7 @@
             this.radioButtonText.Location = new System.Drawing.Point(9, 9);
             this.radioButtonText.Name = "radioButtonText";
             this.radioButtonText.Size = new System.Drawing.Size(46, 17);
-            this.radioButtonText.TabIndex = 13;
+            this.radioButtonText.TabIndex = 14;
             this.radioButtonText.TabStop = true;
             this.radioButtonText.Text = "Text";
             this.radioButtonText.UseVisualStyleBackColor = true;
@@ -200,7 +212,7 @@
             this.radioButtonComments.Location = new System.Drawing.Point(66, 9);
             this.radioButtonComments.Name = "radioButtonComments";
             this.radioButtonComments.Size = new System.Drawing.Size(74, 17);
-            this.radioButtonComments.TabIndex = 14;
+            this.radioButtonComments.TabIndex = 15;
             this.radioButtonComments.TabStop = true;
             this.radioButtonComments.Text = "Comments";
             this.radioButtonComments.UseVisualStyleBackColor = true;
@@ -215,7 +227,7 @@
             this.groupBoxOutput.Location = new System.Drawing.Point(354, 340);
             this.groupBoxOutput.Name = "groupBoxOutput";
             this.groupBoxOutput.Size = new System.Drawing.Size(159, 31);
-            this.groupBoxOutput.TabIndex = 15;
+            this.groupBoxOutput.TabIndex = 16;
             this.groupBoxOutput.TabStop = false;
             // 
             // ManageForm
@@ -226,6 +238,7 @@
             this.Controls.Add(this.groupBoxOutput);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.checkBoxContextFollowing);
+            this.Controls.Add(this.checkBoxPinned);
             this.Controls.Add(this.checkBoxContextPreceding);
             this.Controls.Add(this.labelContext);
             this.Controls.Add(this.comboBoxModel);
@@ -261,6 +274,7 @@
         private System.Windows.Forms.Label labelContext;
         private System.Windows.Forms.CheckBox checkBoxContextPreceding;
         private System.Windows.Forms.CheckBox checkBoxContextFollowing;
+        private System.Windows.Forms.CheckBox checkBoxPinned;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.RadioButton radioButtonText;
         private System.Windows.Forms.RadioButton radioButtonComments;
