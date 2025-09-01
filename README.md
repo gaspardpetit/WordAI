@@ -74,6 +74,10 @@ Here we compare a similar action performed with Microsoft Copilot and WordAI. No
 
 ![assistants](doc/img/example-translate-with-style.gif)
 
+# Continuous Integration
+
+The GitHub workflow builds the VSTO add-in using a self-signed certificate generated at build time. The certificate is placed in the Windows certificate store and referenced by its thumbprint during the build. It exists solely to satisfy ClickOnce manifest signing requirements and is not intended for production use.
+
 # Contributing
 
 WordAI is definitely BETA software. I use it and "it works on my machine" - Install at your own risks, and reach out if you would like to collaborate for improvements !
