@@ -85,6 +85,7 @@ namespace WordAI
                 checkBoxContextFollowing.Checked = true;
                 comboBoxModel.SelectedItem = DEFAULT_MODEL;
                 radioButtonText.Checked = true;
+                checkBoxPinned.Checked = false;
             }
             else
             {
@@ -99,6 +100,7 @@ namespace WordAI
                     comboBoxModel.SelectedItem = string.IsNullOrEmpty(prompt.Model) ? DEFAULT_MODEL : prompt.Model;
                     radioButtonText.Checked = (prompt.Output == OutputType.text.ToString());
                     radioButtonComments.Checked = (prompt.Output != OutputType.text.ToString());
+                    checkBoxPinned.Checked = prompt.Pinned;
                 }
             }
         }
@@ -162,7 +164,8 @@ namespace WordAI
                     Context = contextType.ToString(),
                     Model = promptModel,
                     Output = output,
-                    Id = Guid.NewGuid().ToString()
+                    Id = Guid.NewGuid().ToString(),
+                    Pinned = checkBoxPinned.Checked
                 };
                 promptManager.Prompts.Add(newEntry);
             }
@@ -172,13 +175,14 @@ namespace WordAI
                 // Otherwise, update the existing prompt's text.
                 if (!selectedName.Equals(name, StringComparison.OrdinalIgnoreCase))
                 {
-                    var newEntry = new PromptEntry { 
-                        Label= name, 
-                        Prompt = promptText, 
+                    var newEntry = new PromptEntry {
+                        Label= name,
+                        Prompt = promptText,
                         Id = Guid.NewGuid().ToString(),
                         Context = contextType.ToString(),
                         Model = promptModel,
                         Output = output,
+                        Pinned = checkBoxPinned.Checked
                     };
                     promptManager.Prompts.Add(newEntry);
                 }
@@ -188,6 +192,7 @@ namespace WordAI
                     existing.Context = contextType.ToString();
                     existing.Model = promptModel;
                     existing.Output = output;
+                    existing.Pinned = checkBoxPinned.Checked;
                 }
             }
 

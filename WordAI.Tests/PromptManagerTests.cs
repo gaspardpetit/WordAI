@@ -28,6 +28,7 @@ namespace WordAI.Tests
                     Context = ContextType.prefix.ToString(),
                     Output = OutputType.comments.ToString(),
                     Mode = ChunkingMode.ListAware
+                    ,Pinned = true
                 };
                 manager.Prompts.Add(entry);
                 manager.Save();
@@ -43,6 +44,7 @@ namespace WordAI.Tests
                 Assert.Equal(entry.Context, loaded.Context);
                 Assert.Equal(entry.Output, loaded.Output);
                 Assert.Equal(entry.Mode, loaded.Mode);
+                Assert.Equal(entry.Pinned, loaded.Pinned);
             }
             finally
             {
