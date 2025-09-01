@@ -17,7 +17,17 @@ jobs:
         working-directory: WordAI.VSTO
         run: nuget restore WordAI.VSTO.csproj -SolutionDirectory .
 
+      - name: Create temporary signing certificate
+        working-directory: WordAI.VSTO
+        shell: pwsh
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigning -Subject "CN=WordAI" -CertStoreLocation Cert:\CurrentUser\My
+          echo "CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+
       - name: Build Project
         working-directory: WordAI.VSTO
-        shell: cmd
-        run: "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe\" WordAI.VSTO.csproj /p:Configuration=Release /p:TargetFrameworkVersion=v4.8 /p:SignManifests=false /p:GenerateManifests=false"
+        shell: pwsh
+        run: |
+          $msbuild = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+          & $msbuild WordAI.VSTO.csproj /p:Configuration=Release /p:TargetFrameworkVersion=v4.8 /p:ManifestCertificateThumbprint=$env:CERT_THUMBPRINT "/p:ManifestKeyFile="
+
