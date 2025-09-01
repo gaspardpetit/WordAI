@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace WordAI
 {
@@ -11,17 +12,16 @@ namespace WordAI
         document = 3,
     }
 
-	public enum ChunkingMode
-	{
-		Paragraph,     // Default: one paragraph per chunk
-		ListAware,     // Group contiguous list items into a single chunk
-		WholeBlock,    // Process the entire selection as one chunk
-		Sentence,      // (Optional) Split by sentence boundaries (if you add NLP support)
-		Hybrid         // (Optional) Use heuristics based on size + structure
-	}
+    public enum ChunkingMode
+    {
+        Paragraph,     // Default: one paragraph per chunk
+        ListAware,     // Group contiguous list items into a single chunk
+        WholeBlock,    // Process the entire selection as one chunk
+        Sentence,      // (Optional) Split by sentence boundaries (if you add NLP support)
+        Hybrid         // (Optional) Use heuristics based on size + structure
+    }
 
-
-	public enum OutputType
+    public enum OutputType
     {
         text = 0,
         comments = 1,
@@ -36,8 +36,8 @@ namespace WordAI
         public string Model { get; set; }
         public string Context { get; set; }
         public string Output { get; set; }
-		public ChunkingMode Mode { get; set; }  // Enum: Paragraph, ListAware, WholeBlock
-	}
+        public ChunkingMode Mode { get; set; }  // Enum: Paragraph, ListAware, WholeBlock
+    }
 
     // A manager that loads and saves prompts from a JSON file.
     public class PromptManager
@@ -87,12 +87,7 @@ namespace WordAI
 
         internal PromptEntry Get(string guid)
         {
-            foreach (PromptEntry entry in Prompts)
-            {
-                if (entry.Id == guid)
-                    return entry;
-            }
-            return new PromptEntry();
+            return Prompts.FirstOrDefault(entry => entry.Id == guid) ?? new PromptEntry();
         }
     }
 }

@@ -21,3 +21,6 @@ jobs:
         working-directory: WordAI.VSTO
         shell: cmd
         run: "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe\" WordAI.VSTO.csproj /p:Configuration=Release /p:TargetFrameworkVersion=v4.8 /p:SignManifests=false /p:GenerateManifests=false"
+
+      - name: Run unit tests
+        run: dotnet test WordAI.Tests/WordAI.Tests.csproj

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Xunit;
 using WordAI; // namespace of PromptManager and PromptEntry
 
@@ -48,6 +49,62 @@ namespace WordAI.Tests
             {
                 Environment.SetEnvironmentVariable("HOME", originalHome);
                 System.IO.Directory.Delete(tempHome, true);
+            }
+        }
+
+        [Fact]
+        public void Load_FillsMissingFieldsWithDefaults()
+        {
+            string tempHome = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(tempHome);
+            string originalHome = Environment.GetEnvironmentVariable("HOME");
+            Environment.SetEnvironmentVariable("HOME", tempHome);
+            try
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string folder = Path.Combine(appData, "WordAI");
+                Directory.CreateDirectory(folder);
+                string path = Path.Combine(folder, "prompts.json");
+                File.WriteAllText(path, "[{\"Label\":\"T\",\"Prompt\":\"Hi\"}]");
+
+                var manager = new PromptManager();
+                Assert.Single(manager.Prompts);
+                var loaded = manager.Prompts[0];
+                Assert.False(string.IsNullOrEmpty(loaded.Id));
+                Assert.Equal(ContextType.document.ToString(), loaded.Context);
+                Assert.Equal(OutputType.text.ToString(), loaded.Output);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("HOME", originalHome);
+                Directory.Delete(tempHome, true);
+            }
+        }
+
+        [Fact]
+        public void Get_ReturnsExistingOrNewEntry()
+        {
+            string tempHome = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(tempHome);
+            string originalHome = Environment.GetEnvironmentVariable("HOME");
+            Environment.SetEnvironmentVariable("HOME", tempHome);
+            try
+            {
+                var manager = new PromptManager();
+                manager.Prompts.Clear();
+                var entry = new PromptEntry { Id = Guid.NewGuid().ToString(), Label = "A" };
+                manager.Prompts.Add(entry);
+
+                var found = manager.Get(entry.Id);
+                Assert.Equal(entry.Id, found.Id);
+
+                var missing = manager.Get(Guid.NewGuid().ToString());
+                Assert.Null(missing.Id);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("HOME", originalHome);
+                Directory.Delete(tempHome, true);
             }
         }
     }
