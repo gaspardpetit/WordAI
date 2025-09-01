@@ -74,8 +74,7 @@ Here we compare a similar action performed with Microsoft Copilot and WordAI. No
 
 # Continuous Integration
 
-The GitHub workflow builds the VSTO add-in using a self-signed certificate generated at build time. This certificate is used
-only to satisfy ClickOnce manifest signing requirements and is not intended for production use.
+The GitHub workflow builds the VSTO add-in using a self-signed certificate generated at build time. The certificate is placed in the Windows certificate store and referenced by its thumbprint during the build. It exists solely to satisfy ClickOnce manifest signing requirements and is not intended for production use.
 
 # Contributing
 
