@@ -1,4 +1,4 @@
-﻿using DiffMatchPatch;
+using DiffMatchPatch;
 using Markdig;
 using Markdig.Syntax;
 using Microsoft.Office.Core;
@@ -609,8 +609,18 @@ You only provide the corrected text. You do not provide any additional comment.
 
         public static Range ApplyTrackedChanges(string originalText, string modifiedText, Range selection, bool trackedChanges)
         {
+            // normalize line breaks
+
+            string normalizedOriginalText = originalText
+                .Replace("\r\n", "\r")
+                .Replace("\n", "\r");
+
+            string normalizedModifiedText = modifiedText
+                .Replace("\r\n", "\r")
+                .Replace("\n", "\r");
+
             var dmp = new diff_match_patch();
-            List<Diff> diffs = dmp.diff_main(originalText, modifiedText);
+            List<Diff> diffs = dmp.diff_main(normalizedOriginalText, normalizedModifiedText);
             dmp.diff_cleanupSemantic(diffs); // Optimize for better readability
             return ApplyTrackedChanges(diffs, selection, trackedChanges);
         }
@@ -872,7 +882,7 @@ You only provide the corrected text. You do not provide any additional comment.
             var app = Globals.ThisAddIn.Application;
             Selection selection = app.Selection;
 
-			ApplyTrackedChanges(selection.Text, clipboardText, selection.Range, app.ActiveDocument.TrackRevisions);
+            ApplyTrackedChanges(selection.Text, clipboardText, selection.Range, app.ActiveDocument.TrackRevisions);
         }
 
         public void OnTrackChangeClick(Office.IRibbonControl control, bool pressed)
