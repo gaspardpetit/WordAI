@@ -101,15 +101,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WordAI-${{ env.RELEASE_VERSION }}
-          path: ${{ env:RELEASE_PACKAGE }}
+          path: ${{ env.RELEASE_PACKAGE }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: WordAI ${{ env:RELEASE_VERSION }}
+          name: WordAI ${{ env.RELEASE_VERSION }}
           generate_release_notes: true
-          files: ${{ env:RELEASE_PACKAGE }}
+          files: ${{ env.RELEASE_PACKAGE }}
 
       - name: Remove imported certificate
         if: always()
