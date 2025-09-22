@@ -89,6 +89,14 @@ jobs:
           )
           & $msbuild @arguments
 
+      - name: Include public certificate in package
+        shell: pwsh
+        run: |
+          $publishDir = $env:PUBLISH_DIR
+          $certSource = Join-Path $env:GITHUB_WORKSPACE 'WordAI-CodeSigning.cer'
+          if (-not (Test-Path $certSource)) { throw "WordAI-CodeSigning.cer not found at repository root." }
+          Copy-Item -Path $certSource -Destination (Join-Path $publishDir 'WordAI-CodeSigning.cer') -Force
+
       - name: Create release package
         shell: pwsh
         run: |
