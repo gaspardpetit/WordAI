@@ -3,7 +3,7 @@
 ## Automated Release Workflow
 
 - The `Release WordAI Add-in` GitHub Actions workflow runs on tags that match `v*`.
-- It restores NuGet packages, runs unit tests, publishes the ClickOnce installer with a signing certificate, and zips the output (`setup.exe`, the `.vsto` manifest, and `Application Files/`).
+- It restores NuGet packages, runs unit tests, publishes the ClickOnce installer with a signing certificate, and zips the output (`setup.exe`, the `.vsto` manifest, `Application Files/`, and `WordAI-CodeSigning.cer`).
 - Store the base64-encoded `.pfx` in the `WORDAI_CODE_SIGNING_PFX` secret and its password in `WORDAI_CODE_SIGNING_PASSWORD` so the workflow can import the certificate during the build.
 - Tag versions in `major.minor.patch` form (for example `v1.2.3`). The workflow pads the ClickOnce `ApplicationVersion` with a `.0` revision segment when necessary.
 
