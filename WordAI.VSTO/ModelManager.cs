@@ -1,11 +1,11 @@
-﻿using OpenAI.Models;
+using OpenAI.Models;
 using OpenAI;
 using System;
-using System.ClientModel;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.Win32;
 using System.Net;
+using System.ClientModel;
 
 namespace WordAI
 {
