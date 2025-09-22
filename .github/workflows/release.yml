@@ -46,8 +46,7 @@ jobs:
           "RELEASE_PACKAGE=$packagePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Restore NuGet packages
-        working-directory: WordAI.VSTO
-        run: nuget restore WordAI.VSTO.csproj -SolutionDirectory .
+        run: nuget restore WordAI.VSTO/WordAI.VSTO.csproj -SolutionDirectory .
 
       - name: Run unit tests
         shell: pwsh
@@ -55,12 +54,21 @@ jobs:
           $env:DOTNET_ROLL_FORWARD = 'Major'
           dotnet test WordAI.Tests/WordAI.Tests.csproj
 
-      - name: Create temporary signing certificate
-        working-directory: WordAI.VSTO
+      - name: Import signing certificate
         shell: pwsh
+        env:
+          PFX_BASE64: ${{ secrets.WORDAI_CODE_SIGNING_PFX }}
+          PFX_PASSWORD: ${{ secrets.WORDAI_CODE_SIGNING_PASSWORD }}
         run: |
-          $cert = New-SelfSignedCertificate -Type CodeSigning -Subject "CN=WordAI" -CertStoreLocation Cert:\CurrentUser\My
+          if (-not $env:PFX_BASE64) { throw "WORDAI_CODE_SIGNING_PFX is not configured." }
+          if (-not $env:PFX_PASSWORD) { throw "WORDAI_CODE_SIGNING_PASSWORD is not configured." }
+          $pfxPath = Join-Path $env:RUNNER_TEMP 'wordai-signing.pfx'
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:PFX_BASE64))
+          $securePassword = ConvertTo-SecureString -String $env:PFX_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
+          if (-not $cert) { throw "Failed to import signing certificate." }
           "CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Remove-Item $pfxPath -Force
 
       - name: Publish add-in
         working-directory: WordAI.VSTO
@@ -93,17 +101,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WordAI-${{ env.RELEASE_VERSION }}
-          path: ${{ env.RELEASE_PACKAGE }}
+          path: ${{ env:RELEASE_PACKAGE }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: WordAI ${{ env.RELEASE_VERSION }}
+          name: WordAI ${{ env:RELEASE_VERSION }}
           generate_release_notes: true
-          files: ${{ env.RELEASE_PACKAGE }}
+          files: ${{ env:RELEASE_PACKAGE }}
 
-      - name: Remove temporary certificate
+      - name: Remove imported certificate
         if: always()
         shell: pwsh
         run: |

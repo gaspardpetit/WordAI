@@ -3,7 +3,7 @@
 ## Local Setup
 
 - Use four-space indentation and LF line endings.
-- Restore NuGet packages with `nuget restore WordAI.VSTO/WordAI.VSTO.csproj -SolutionDirectory WordAI.VSTO` if Visual Studio does not do it automatically.
+- Restore NuGet packages with `nuget restore WordAI.VSTO/WordAI.VSTO.csproj -SolutionDirectory .` if Visual Studio does not do it automatically.
 
 ## Testing
 
@@ -13,3 +13,4 @@
 
 - Build on a Windows machine with Visual Studio 2022 or later and the .NET Framework 4.8 tooling installed.
 - Use the `Release` configuration to generate the ClickOnce output in `WordAI.VSTO/bin/Release/`.
+
