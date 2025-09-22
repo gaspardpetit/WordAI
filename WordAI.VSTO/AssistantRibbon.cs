@@ -1,4 +1,4 @@
-using DiffMatchPatch;
+using LexiDiff;
 using Markdig;
 using Microsoft.Office.Core;
 using Microsoft.Office.Interop.Word;
@@ -9,6 +9,7 @@ using System;
 using System.ClientModel;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -531,10 +532,14 @@ You only provide the corrected text. You do not provide any additional comment.
 		}
 
 
-		public static Range ApplyTrackedChanges(List<Diff> diffs, Range selection, bool trackedChanges)
+		public static Range ApplyTrackedChanges(IReadOnlyList<LexSpan> diffs, Range selection, bool trackedChanges)
         {
-			// Duplicate the current selection range.
-			Range rng = selection.Duplicate;
+            bool savedTrackReviosionValue = selection.Document.TrackRevisions;
+            if (trackedChanges && savedTrackReviosionValue == false)
+                selection.Document.TrackRevisions = true;
+
+            // Duplicate the current selection range.
+            Range rng = selection.Duplicate;
             int basePos = rng.Start;
 
 			var chars = rng.NewRange(1, 13).Characters;
@@ -557,17 +562,17 @@ You only provide the corrected text. You do not provide any additional comment.
             foreach (var diff in diffs)
             {
                 Debug.WriteLine(selection.Text);
-                if (diff.operation == Operation.EQUAL)
+                if (diff.Op == LexOp.Equal)
                 {
                     // For equal text, simply advance the offset.
-                    offset += diff.text.Length;
+                    offset += diff.Text.Length;
                 }
-                else if (diff.operation == Operation.DELETE)
+                else if (diff.Op == LexOp.Delete)
                 {
                     try
                     {
                         // Create a range covering the text to delete.
-                        Range delRange = selection.NewRange(basePos + offset, basePos + offset + diff.text.Length);
+                        Range delRange = selection.NewRange(basePos + offset, basePos + offset + diff.Text.Length);
                         // don't use .Delete as it triggers auto formatting rules, such as fusion of spaces
                         delRange.Text = "";
 
@@ -575,7 +580,7 @@ You only provide the corrected text. You do not provide any additional comment.
                         // so we advance the offset as if it did.
                         if (simulateTrackedChanges)
                         {
-                            offset += diff.text.Length;
+                            offset += diff.Text.Length;
                         }
 
                         // Otherwise, when tracked changes is off, deletion actually removes text,
@@ -586,15 +591,15 @@ You only provide the corrected text. You do not provide any additional comment.
                         MessageBox.Show("Error applying deletion diff: " + ex.Message);
                     }
                 }
-                else if (diff.operation == Operation.INSERT)
+                else if (diff.Op == LexOp.Insert)
                 {
                     try
                     {
                         // Create a range at the current offset.
                         Range insRange = selection.NewRange(basePos + offset, basePos + offset);
-                        insRange.InsertAfter(diff.text);
+                        insRange.InsertAfter(diff.Text);
                         // Advance the offset by the inserted text's length.
-                        offset += diff.text.Length;
+                        offset += diff.Text.Length;
                     }
                     catch (Exception ex)
                     {
@@ -602,6 +607,10 @@ You only provide the corrected text. You do not provide any additional comment.
                     }
                 }
             }
+
+            if (selection.Document.TrackRevisions != savedTrackReviosionValue)
+                selection.Document.TrackRevisions = savedTrackReviosionValue;
+
             return selection.Document.Range(basePos, basePos + offset);
         }
 
@@ -617,10 +626,23 @@ You only provide the corrected text. You do not provide any additional comment.
                 .Replace("\r\n", "\r")
                 .Replace("\n", "\r");
 
-            var dmp = new diff_match_patch();
-            List<Diff> diffs = dmp.diff_main(normalizedOriginalText, normalizedModifiedText);
-            dmp.diff_cleanupSemantic(diffs); // Optimize for better readability
-            return ApplyTrackedChanges(diffs, selection, trackedChanges);
+            WdLanguageID lang = selection.LanguageID;
+            int lcid = (int)lang;
+            CultureInfo culture = CultureInfo.InvariantCulture;
+            try
+            {
+                culture = CultureInfo.GetCultureInfo(lcid);
+            }
+            catch (CultureNotFoundException)
+            {
+                // Word has some WdLanguageID values that do not map to real .NET cultures
+            }
+
+            LexOptions options = new LexOptions {
+                DetectLang = _ => culture
+            };
+            LexiDiffResult result = Lexi.Compare(normalizedOriginalText, normalizedModifiedText, options);
+            return ApplyTrackedChanges(result.Spans, selection, trackedChanges);
         }
 
         public static AsyncCollectionResult<StreamingChatCompletionUpdate> GetResponseAsync(Uri apiEndpoint, string apiToken, string model, string selectionText, string documentText, string prompt)
@@ -819,14 +841,7 @@ You only provide the corrected text. You do not provide any additional comment.
 
                         string aiResponse = aiResponseBuilder.ToString().Trim();
 
-                        bool prevTrackRevisionsState = doc.TrackRevisions;
-                        if (trackedChanges)
-                            doc.TrackRevisions = true;
-
                         ApplyTrackedChanges(trimedSelectionRange.Text, aiResponse, trimedSelectionRange, trackedChanges);
-
-                        if (trackedChanges)
-                            doc.TrackRevisions = prevTrackRevisionsState;
 					}
 				}
                 );
@@ -880,7 +895,8 @@ You only provide the corrected text. You do not provide any additional comment.
             var app = Globals.ThisAddIn.Application;
             Selection selection = app.Selection;
 
-            ApplyTrackedChanges(selection.Text, clipboardText, selection.Range, app.ActiveDocument.TrackRevisions);
+            bool trackRevision = GetTrackedChangesSettings();
+            ApplyTrackedChanges(selection.Text, clipboardText, selection.Range, trackRevision);
         }
 
         public void OnTrackChangeClick(Office.IRibbonControl control, bool pressed)
@@ -1208,7 +1224,6 @@ Work on the following text (and only the following text):
 
                         if (prompt.Output == OutputType.text.ToString())
                         {
-                            bool prevTrackRevisionsState = selection.Document.TrackRevisions;
                             Range insertRange = null;
                             if (preserveStyle)
                             {
@@ -1216,14 +1231,8 @@ Work on the following text (and only the following text):
                             }
                             else
                             {
-                                if (trackedChanges)
-									selection.Document.TrackRevisions = true;
-
                                 // Apply the changes to the document.
                                 insertRange = ApplyTrackedChanges(trimmedSelectionRange.Text, aiResponse, trimmedSelectionRange, trackedChanges);
-
-                                if (trackedChanges)
-									selection.Document.TrackRevisions = prevTrackRevisionsState;
                             }
 
                             if (GetThoughtsAsCommentsSettings())
