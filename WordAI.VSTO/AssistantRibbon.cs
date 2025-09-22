@@ -1,6 +1,5 @@
 using DiffMatchPatch;
 using Markdig;
-using Markdig.Syntax;
 using Microsoft.Office.Core;
 using Microsoft.Office.Interop.Word;
 using Microsoft.Win32;
@@ -16,7 +15,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using Office = Microsoft.Office.Core;
 
@@ -812,7 +810,7 @@ You only provide the corrected text. You do not provide any additional comment.
                         string model = modelSettings.DefaultModel;
 
 						AsyncCollectionResult<StreamingChatCompletionUpdate> completionUpdates = GetResponseAsync(new Uri(modelSettings.Endpoint), modelSettings.ApiToken, model, trimedSelectionRange.Text, doc.Content.Text, IMPROVE_PROMPT);
-                        var enumerator = completionUpdates.GetAsyncEnumerator();
+                        IAsyncEnumerator<StreamingChatCompletionUpdate> enumerator = completionUpdates.GetAsyncEnumerator();
                         while (await enumerator.MoveNextAsync())
                         {
                             StreamingChatCompletionUpdate completionUpdate = enumerator.Current;
