@@ -15,7 +15,7 @@ jobs:
 
       - name: Restore NuGet Packages
         working-directory: WordAI.VSTO
-        run: nuget restore WordAI.VSTO.csproj -SolutionDirectory .
+        run: nuget restore WordAI.VSTO.csproj -SolutionDirectory . -PackagesDirectory ..\packages
 
       - name: Create temporary signing certificate
         working-directory: WordAI.VSTO
