@@ -1,0 +1,112 @@
+name: Release WordAI Add-in
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      BUILD_CONFIGURATION: Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare build metadata
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if (-not $tag) { throw "GITHUB_REF_NAME is not set." }
+          if ($tag.StartsWith("v")) { $tag = $tag.Substring(1) }
+          if ($tag -notmatch '^\d+(\.\d+){2,3}$') {
+              throw "Tags must follow v<major.minor.patch[.revision]>."
+          }
+          $segments = $tag.Split(".")
+          if ($segments.Count -eq 3) {
+              $appVersion = "$tag.0"
+          } else {
+              $appVersion = $tag
+          }
+          $publishDir = Join-Path $env:RUNNER_TEMP "publish"
+          if (-not (Test-Path $publishDir)) {
+              New-Item -ItemType Directory -Path $publishDir | Out-Null
+          }
+          if (-not $publishDir.EndsWith("\\")) {
+              $publishDir += "\\"
+          }
+          $packageName = "WordAI-$tag.zip"
+          $packagePath = Join-Path $env:RUNNER_TEMP $packageName
+          "RELEASE_VERSION=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "APPLICATION_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PUBLISH_DIR=$publishDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_PACKAGE=$packagePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore NuGet packages
+        working-directory: WordAI.VSTO
+        run: nuget restore WordAI.VSTO.csproj -SolutionDirectory .
+
+      - name: Run unit tests
+        shell: pwsh
+        run: |
+          $env:DOTNET_ROLL_FORWARD = 'Major'
+          dotnet test WordAI.Tests/WordAI.Tests.csproj
+
+      - name: Create temporary signing certificate
+        working-directory: WordAI.VSTO
+        shell: pwsh
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigning -Subject "CN=WordAI" -CertStoreLocation Cert:\CurrentUser\My
+          "CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Publish add-in
+        working-directory: WordAI.VSTO
+        shell: pwsh
+        run: |
+          $msbuild = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+          $publishDir = $env:PUBLISH_DIR
+          $arguments = @(
+              "WordAI.VSTO.csproj",
+              "/target:Publish",
+              "/p:Configuration=$env:BUILD_CONFIGURATION",
+              "/p:TargetFrameworkVersion=v4.8",
+              "/p:PublishDir=$publishDir",
+              "/p:ApplicationVersion=$env:APPLICATION_VERSION",
+              "/p:ApplicationRevision=0",
+              "/p:ManifestCertificateThumbprint=$env:CERT_THUMBPRINT",
+              "/p:ManifestKeyFile="
+          )
+          & $msbuild @arguments
+
+      - name: Create release package
+        shell: pwsh
+        run: |
+          $publishDir = $env:PUBLISH_DIR
+          $packagePath = $env:RELEASE_PACKAGE
+          if (Test-Path $packagePath) { Remove-Item $packagePath -Force }
+          Compress-Archive -Path "$publishDir*" -DestinationPath $packagePath -Force
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WordAI-${{ env.RELEASE_VERSION }}
+          path: ${{ env.RELEASE_PACKAGE }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: WordAI ${{ env.RELEASE_VERSION }}
+          generate_release_notes: true
+          files: ${{ env.RELEASE_PACKAGE }}
+
+      - name: Remove temporary certificate
+        if: always()
+        shell: pwsh
+        run: |
+          if ($env:CERT_THUMBPRINT) {
+              Remove-Item -Path "Cert:\CurrentUser\My\$($env:CERT_THUMBPRINT)" -ErrorAction SilentlyContinue
+          }

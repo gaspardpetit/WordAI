@@ -82,13 +82,5 @@ The GitHub workflow builds the VSTO add-in using a self-signed certificate gener
 
 WordAI is definitely BETA software. I use it and "it works on my machine" - Install at your own risks, and reach out if you would like to collaborate for improvements !
 
-## Development
-
-The repository includes unit tests for the prompt management features. If your environment only has a newer .NET SDK installed, you can run the tests with:
-
-```bash
-DOTNET_ROLL_FORWARD=Major dotnet test WordAI.Tests/WordAI.Tests.csproj
-```
-
-Building the VSTO add-in itself requires Windows, Visual Studio and the .NET Framework 4.8 tooling.
+See `CONTRIB.md` for local build and test instructions, and `RELEASE.md` for publishing guidance.
 
