@@ -324,7 +324,6 @@
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="MacroEntryPoints.cs" />
     <Compile Include="WordXml.cs" />
     <EmbeddedResource Include="ManageForm.resx">
       <DependentUpon>ManageForm.cs</DependentUpon>
