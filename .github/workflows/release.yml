@@ -118,6 +118,8 @@ jobs:
           name: WordAI ${{ env.RELEASE_VERSION }}
           generate_release_notes: true
           files: ${{ env.RELEASE_PACKAGE }}
+          overwrite_files: true
+          allow_updates: true
 
       - name: Remove imported certificate
         if: always()
