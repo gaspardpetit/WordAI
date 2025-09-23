@@ -1,4 +1,4 @@
-<Project ToolsVersion="17.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project ToolsVersion="17.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
     <!--
     This section defines project-level properties.
@@ -443,5 +443,19 @@
             <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
         </PropertyGroup>
         <Error Condition="!Exists('..\packages\System.ValueTuple.4.6.1\build\net471\System.ValueTuple.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\System.ValueTuple.4.6.1\build\net471\System.ValueTuple.targets'))" />
+    </Target>
+    <Target Name="IncludeIcu4nResourcesInClickOnce" AfterTargets="CopyIcu4nResourceSatellites">
+        <ItemGroup>
+            <PublishFile Include="$(OutDir)ICU4N.resources.dll">
+                <Visible>false</Visible>
+                <PublishState>Include</PublishState>
+                <TargetPath>ICU4N.resources.dll</TargetPath>
+            </PublishFile>
+            <PublishFile Include="@(IcuSatFixed->'$(OutDir)%(Culture)\ICU4N.resources.dll')">
+                <Visible>false</Visible>
+                <PublishState>Include</PublishState>
+                <TargetPath>%(IcuSatFixed.Culture)\ICU4N.resources.dll</TargetPath>
+            </PublishFile>
+        </ItemGroup>
     </Target>
 </Project>
