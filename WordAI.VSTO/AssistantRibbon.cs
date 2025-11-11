@@ -562,12 +562,12 @@ You only provide the corrected text. You do not provide any additional comment.
             foreach (var diff in diffs)
             {
                 Debug.WriteLine(selection.Text);
-                if (diff.Op == LexOp.Equal)
+                if (diff.Op == LexiOp.Equal)
                 {
                     // For equal text, simply advance the offset.
                     offset += diff.Text.Length;
                 }
-                else if (diff.Op == LexOp.Delete)
+                else if (diff.Op == LexiOp.Delete)
                 {
                     try
                     {
@@ -591,7 +591,7 @@ You only provide the corrected text. You do not provide any additional comment.
                         MessageBox.Show("Error applying deletion diff: " + ex.Message);
                     }
                 }
-                else if (diff.Op == LexOp.Insert)
+                else if (diff.Op == LexiOp.Insert)
                 {
                     try
                     {
@@ -638,7 +638,7 @@ You only provide the corrected text. You do not provide any additional comment.
                 // Word has some WdLanguageID values that do not map to real .NET cultures
             }
 
-            LexOptions options = new LexOptions {
+            LexiOptions options = new LexiOptions {
                 DetectLang = _ => culture
             };
             LexiDiffResult result = Lexi.Compare(normalizedOriginalText, normalizedModifiedText, options);
